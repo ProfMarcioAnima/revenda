@@ -6,10 +6,10 @@ use PDOException;
 
 class Conexao {
     private $host = "localhost";
-    private $port = "3306";
+    private $port = "3307";
     private $db_name = "revenda";
     private $username = "root";
-    private $password = "apple";
+    private $password = "";
     protected $conn;
 
     public function getConnection() {
