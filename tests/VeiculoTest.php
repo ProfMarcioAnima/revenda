@@ -29,7 +29,7 @@ class VeiculoTest extends TestCase
         );
     }
 
-    public function testListarPublicoRetornaArray()
+    public function testlistar_publicoRetornaArray()
     {
         $this->dbMock->method('prepare')->willReturn($this->stmtMock);
         $this->stmtMock->method('execute')->willReturn(true);
@@ -38,7 +38,7 @@ class VeiculoTest extends TestCase
         $resultado = $this->veiculo->listar_publico();
         $this->assertIsArray(
             $resultado,
-            'O método listarPublico deve retornar um array.'
+            'O método listar_publico deve retornar um array.'
         );
     }
 

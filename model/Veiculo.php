@@ -75,8 +75,7 @@ class Veiculo {
     public function buscarPorId($id) {
         $stmt = $this->conn->prepare("SELECT * FROM " . $this->table . " WHERE id = :id");
         $stmt->execute([':id' => $id]);
-        //return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
     }
 
     public function salvar($dados) {
