@@ -1,0 +1,27 @@
+name: CI PHP
+on: [push]
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Instalar dependências
+        run: |
+          composer install
+          composer dump-autoload -o
+
+      - name: Corrigir quebras de linha e estilo automaticamente
+        run: php vendor/bin/phpcbf --standard=PSR12 controller/ model/ || true
+
+      - name: Verificação de Estilo
+        run: php vendor/bin/phpcs --standard=PSR12 controller/ model/
+
+      - name: Rodar Testes
+        run: php vendor/bin/phpunit

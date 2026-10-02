@@ -10,7 +10,7 @@ class Conexao {
     private $db_name = "revenda";
     private $username = "root";
     private $password = "apple";
-    public $conn;
+    protected $conn;
 
     public function getConnection() {
         $this->conn = null;
