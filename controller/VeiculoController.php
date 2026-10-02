@@ -35,7 +35,7 @@ class VeiculoController {
             'valor_max' => $_GET['valor_max'] ?? '',
             'ordem' => $_GET['ordem'] ?? 'menor'
         ];
-        $lista = $this->Veiculo->listarPublico($busca, $filtros);
+        $lista = $this->Veiculo->listar_publico($busca, $filtros);
         $opcoes = $this->Veiculo->buscarOpcoesFiltros();
         if (file_exists('view/catalogo.php')) {
             include 'view/catalogo.php';

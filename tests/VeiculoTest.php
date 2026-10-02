@@ -35,7 +35,7 @@ class VeiculoTest extends TestCase
         $this->stmtMock->method('execute')->willReturn(true);
         $this->stmtMock->method('fetchAll')->willReturn([]);
 
-        $resultado = $this->veiculo->listarPublico();
+        $resultado = $this->veiculo->listar_publico();
         $this->assertIsArray(
             $resultado,
             'O método listarPublico deve retornar um array.'
