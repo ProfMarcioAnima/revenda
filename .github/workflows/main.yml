@@ -1,17 +1,14 @@
 name: CI PHP
 on: [push]
 
-env:
-  ACTIONS_FLAGS: "--no-warnings"
-
 jobs:
   testes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Configurar PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2.32.0
         with:
           php-version: '8.2'
 
