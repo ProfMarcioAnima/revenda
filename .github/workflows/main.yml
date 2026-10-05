@@ -1,6 +1,9 @@
 name: CI PHP
 on: [push]
 
+env:
+  ACTIONS_FLAGS: "--no-warnings"
+
 jobs:
   testes:
     runs-on: ubuntu-latest
