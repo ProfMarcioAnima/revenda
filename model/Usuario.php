@@ -1,13 +1,14 @@
 <?php
-require_once('conexao.php');
+namespace App\Model;
 
-class Usuario extends conexao {
-    private $usuario;
-    private $senha;
-    private $tabela = 'usuarios';
+use PDO;
 
-    public function __construct() {
-        parent::__construct();
+class Usuario {
+    private $conn;
+    private $table = "usuarios";
+
+    public function __construct(PDO $db) {
+        $this->conn = $db;
     }
 
     // Método de login

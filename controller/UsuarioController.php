@@ -1,5 +1,9 @@
 <?php
-    require_once('../model/Usuario.php');
+	namespace App\Controller;
+
+	use App\Config\Conexao;
+	use App\Model\Usuario;
+	use PDO;
 
     class UsuarioController {
 
