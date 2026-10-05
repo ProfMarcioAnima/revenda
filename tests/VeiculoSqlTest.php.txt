@@ -15,7 +15,7 @@ class VeiculoSqlTest extends TestCase
         $conteudo = file_get_contents($caminhoArquivo);
 
         $this->assertDoesNotMatchRegularExpression(
-            '/SELECT\s+\*\s+FROM/i',
+            '/SELECT[^\n]*\*/i',
             $conteudo,
             'Não é permitido usar * no SELECT do SQL no Model.'
         );
