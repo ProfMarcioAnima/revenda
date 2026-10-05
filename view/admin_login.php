@@ -13,7 +13,7 @@
     <div id="container-login" class="card">
         <h3 id="titulo-login" style="margin-top:0; color:#004a8d; text-align:center;">Painel Administrativo</h3>
         <?php if(isset($erro)) echo "<p id='msg-erro-login' style='color:red; font-size:13px;'>$erro</p>"; ?>
-        <form id="form-login" action="index.php?action=login" method="POST">
+        <form id="form-login" action="../controller/usuarioController.php?action=logar">" method="POST">
             <input id="input-usuario" type="text" name="usuario" required autofocus>
             <input id="input-senha" type="password" name="senha" required>
             <button id="btn-entrar" type="submit">ENTRAR</button>
