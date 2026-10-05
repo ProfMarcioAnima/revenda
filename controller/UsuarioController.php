@@ -1,7 +1,7 @@
 <?php
-    require_once('../model/usuarioModel.php');
+    require_once('../model/Usuario.php');
 
-    class usuarioController {
+    class UsuarioController {
 
         public function logar() {
             $usuario = new Usuario();
