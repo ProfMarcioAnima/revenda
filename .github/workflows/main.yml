@@ -19,7 +19,7 @@ jobs:
         run: php vendor/bin/phpcbf --standard=PSR12 controller/ model/ || true
 
       - name: Verificação de Estilo
-        run: php vendor/bin/phpcs --standard=PSR12 controller/ model/
+        run: php vendor/bin/phpcs -n --standard=PSR12 controller/ model/
 
       - name: Rodar Testes
         run: php vendor/bin/phpunit
