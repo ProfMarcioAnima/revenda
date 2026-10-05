@@ -13,9 +13,7 @@ jobs:
           php-version: '8.2'
 
       - name: Instalar dependências
-        run: |
-          composer install
-          composer dump-autoload -o
+        run: composer update --no-interaction --prefer-dist
 
       - name: Corrigir quebras de linha e estilo automaticamente
         run: php vendor/bin/phpcbf --standard=PSR12 controller/ model/ || true
