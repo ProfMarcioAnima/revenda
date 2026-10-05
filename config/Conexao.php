@@ -6,7 +6,7 @@ use PDOException;
 
 class Conexao {
     private $host = "localhost";
-    private $port = "3307";
+    private $port = "3306";
     private $db_name = "revenda";
     private $username = "root";
     private $password = "";
