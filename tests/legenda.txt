@@ -1,6 +1,6 @@
 Cada uma das 7 falhas apontadas pelo PHPUnit corresponde exatamente às violações intencionais que foram inseridas no Veiculo.php:
 
-
+ .
 1 - VeiculoComentariosTest: Pegou o comentário em bloco (/* ... */).
 2 - VeiculoSqlTest: Pegou a instrução proibida SELECT * FROM.
 3 - testListar_PublicoRetornaArray: Acusou o retorno null em vez de array.
