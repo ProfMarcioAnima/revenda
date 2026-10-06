@@ -11,21 +11,12 @@ class Usuario {
         $this->conn = $db;
     }
 
-    // Método de login
-    public function logar($usuario, $senha) {
-        $sql = "SELECT usuario, senha FROM $this->tabela WHERE usuario = :usuario AND senha = :senha";
+    public function logar($login, $senha) {
+        $sql = "SELECT login, senha FROM {$this->table} WHERE login = :login AND senha = :senha";
         $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':usuario', $usuario, PDO::PARAM_STR);
+        $stmt->bindParam(':login', $login, PDO::PARAM_STR);
         $stmt->bindParam(':senha', $senha, PDO::PARAM_STR);
         $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($result) {
-            session_start();
-            $_SESSION['logado'] = true;
-            header('Location: ../view/agenda.php?logado=true');
-        } else {
-            header('Location: ../view/index.php?erro=login');
-        }
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 }

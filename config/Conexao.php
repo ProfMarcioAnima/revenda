@@ -9,7 +9,7 @@ class Conexao {
     private $port = "3306";
     private $db_name = "revenda";
     private $username = "root";
-    private $password = "";
+    private $password = "apple";
     protected $conn;
 
     public function getConnection() {

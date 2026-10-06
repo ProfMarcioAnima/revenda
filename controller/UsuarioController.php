@@ -1,38 +1,64 @@
 <?php
-	namespace App\Controller;
+namespace App\Controller;
 
-	use App\Config\Conexao;
-	use App\Model\Usuario;
-	use PDO;
+use App\Config\Conexao;
+use App\Model\Usuario;
+use PDO;
 
-    class UsuarioController {
+class UsuarioController {
+    private $Usuario;
+    private $db;
 
-        public function logar() {
-            $usuario = new Usuario();
-
-            $user = $_POST['usuario'];
-            $senha = $_POST['senha'];
-            //$salt = md5($senha);
-            $senha = hash('sha256', $senha);
-            $usuario->logar($user, $senha);    
+    public function __construct(?Usuario $usuario = null, ?PDO $db = null) {
+        if ($db !== null) {
+            $this->db = $db;
+        } else {
+            $this->db = (new Conexao())->getConnection();
         }
 
-        public function sair() {
-            session_start();
-            session_destroy();
-            header('Location: ../view/index.php?user=deslogado');
-
-        }
-
-        public function handleRequest() {
-            if (isset($_GET['action']) && $_GET['action'] == 'logar') {
-                $this->logar();
-            }
-            if (isset($_GET['action']) && $_GET['action'] == 'sair') {
-                $this->sair();
-            }
+        if ($usuario !== null) {
+            $this->Usuario = $usuario;
+        } else {
+            $this->Usuario = new Usuario($this->db);
         }
     }
-    $UsuarioController = new UsuarioController();
-    $UsuarioController->handleRequest();
-?>
+
+    public function logar() {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+
+        $user = $_POST['usuario'] ?? $_POST['login'] ?? '';
+        $senha = $_POST['senha'] ?? '';
+        $senhaHash = hash('sha256', $senha);
+
+        $resultado = $this->Usuario->logar($user, $senhaHash);
+
+        if ($resultado) {
+            $_SESSION['admin_logged'] = true;
+            $_SESSION['usuario'] = $resultado['login'];
+            $_SESSION['sucesso'] = 'Login realizado com sucesso!';
+            $this->redirecionar("index.php?action=admin_dashboard");
+        } else {
+            $this->redirecionar("index.php?action=login&erro=1");
+        }
+    }
+
+    public function sair() {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+        $_SESSION = [];
+        @session_destroy();
+        $this->redirecionar("index.php?action=login&deslogado=1");
+    }
+
+    protected function redirecionar($url) {
+        if (!headers_sent()) {
+            @header("Location: " . $url);
+        }
+        if (php_sapi_name() !== 'cli') {
+            exit;
+        }
+    }
+}

@@ -1,22 +1,38 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8"><title>Acesso Restrito</title>
+    <meta charset="UTF-8">
+    <title>Login Administrativo</title>
     <style>
-        body { font-family: sans-serif; background: #e9ecef; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; width: 320px; border-top: 5px solid #004a8d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background: #004a8d; color: white; font-weight: bold; border: none; cursor: pointer; }
+        body { font-family: sans-serif; background: #eaeff3; padding: 40px; }
+        .card { background: white; max-width: 400px; margin: auto; padding: 30px; border-top: 4px solid #004a8d; }
+        .row { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .erro { color: #d9534f; background: #fdf2f2; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body id="body-login">
+    <?php if (isset($_GET['deslogado'])): ?>
+        <script>
+            alert("Você foi desconectado com sucesso.");
+        </script>
+    <?php endif; ?>
     <div id="container-login" class="card">
-        <h3 id="titulo-login" style="margin-top:0; color:#004a8d; text-align:center;">Painel Administrativo</h3>
-        <?php if(isset($erro)) echo "<p id='msg-erro-login' style='color:red; font-size:13px;'>$erro</p>"; ?>
-        <form id="form-login" action="../controller/usuarioController.php?action=logar">" method="POST">
-            <input id="input-usuario" type="text" name="usuario" required autofocus>
-            <input id="input-senha" type="password" name="senha" required>
-            <button id="btn-entrar" type="submit">ENTRAR</button>
+        <h3 id="titulo-login">Acesso ao Sistema</h3>
+        <?php if (isset($_GET['erro'])): ?>
+            <div id="msg-erro" class="erro">Usuário ou senha incorretos.</div>
+        <?php endif; ?>
+        <form id="form-login" action="index.php?action=login" method="POST">
+            <div id="linha-usuario" class="row">
+                <label id="label-usuario">Usuário</label>
+                <input id="input-usuario" type="text" name="usuario" required>
+            </div>
+            <div id="linha-senha" class="row">
+                <label id="label-senha">Senha</label>
+                <input id="input-senha" type="password" name="senha" required>
+            </div>
+            <button id="btn-entrar" type="submit" style="padding:10px 20px; background:#004a8d; color:white; border:none; font-weight:bold; cursor:pointer; width:100%;">ENTRAR</button>
         </form>
     </div>
 </body>

@@ -1,3 +1,9 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+$lista = $lista ?? [];
+?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -17,6 +23,12 @@
     </style>
 </head>
 <body id="body-dashboard">
+    <?php if (isset($_SESSION['sucesso'])): ?>
+        <script>
+            alert("<?php echo addslashes($_SESSION['sucesso']); ?>");
+        </script>
+        <?php unset($_SESSION['sucesso']); ?>
+    <?php endif; ?>
     <div id="header-dashboard" class="header">
         <h2 id="titulo-dashboard">Gerenciamento de Veículos - Senac</h2>
         <div id="acoes-dashboard">
