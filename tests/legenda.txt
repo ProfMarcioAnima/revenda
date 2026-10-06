@@ -3,7 +3,7 @@ Cada uma das 7 falhas apontadas pelo PHPUnit corresponde exatamente às violaç�
 
 1 - VeiculoComentariosTest: Pegou o comentário em bloco (/* ... */).
 2 - VeiculoSqlTest: Pegou a instrução proibida SELECT * FROM.
-3 - testListarPublicoRetornaArray: Acusou o retorno null em vez de array.
+3 - testListar_PublicoRetornaArray: Acusou o retorno null em vez de array.
 4 - testListarTodosAdminRetornaArray: Acusou o retorno false em vez de array.
 5 - testBuscarPorIdRetornaFalsoQuandoNaoEncontrar: Acusou que o método retornou um array em vez de false.
 6 - testSalvarNovoVeiculoRetornaBooleano: Acusou o retorno da string 'ok' em vez do booleano true.
