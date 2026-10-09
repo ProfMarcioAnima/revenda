@@ -9,7 +9,7 @@
  */
 namespace PHPUnit\Framework\MockObject;
 
-use function assert;
+use PHPUnit\Framework\MockObject\Builder\InvocationMocker as InvocationMockerBuilder;
 use PHPUnit\Framework\MockObject\Rule\InvocationOrder;
 
 /**
@@ -19,14 +19,16 @@ use PHPUnit\Framework\MockObject\Rule\InvocationOrder;
  */
 trait MockObjectApi
 {
-    public function __phpunit_hasInvocationCountRule(): bool
+    private object $__phpunit_originalObject;
+
+    public function __phpunit_hasMatchers(): bool
     {
-        return $this->__phpunit_getInvocationHandler()->hasInvocationCountRule();
+        return $this->__phpunit_getInvocationHandler()->hasMatchers();
     }
 
-    public function __phpunit_hasParametersRule(): bool
+    public function __phpunit_setOriginalObject(object $originalObject): void
     {
-        return $this->__phpunit_getInvocationHandler()->hasParametersRule();
+        $this->__phpunit_originalObject = $originalObject;
     }
 
     public function __phpunit_verify(bool $unsetInvocationMocker = true): void
@@ -38,35 +40,12 @@ trait MockObjectApi
         }
     }
 
-    abstract public function __phpunit_state(): TestDoubleState;
-
     abstract public function __phpunit_getInvocationHandler(): InvocationHandler;
 
     abstract public function __phpunit_unsetInvocationMocker(): void;
 
-    public function __phpunit_recordsInvocations(): bool
-    {
-        return $this->__phpunit_getInvocationHandler()->recordsInvocations();
-    }
-
-    public function expects(InvocationOrder $matcher): InvocationMocker
+    public function expects(InvocationOrder $matcher): InvocationMockerBuilder
     {
         return $this->__phpunit_getInvocationHandler()->expects($matcher);
-    }
-
-    /**
-     * @param ?non-empty-string                         $label
-     * @param array<non-empty-string, non-empty-string> $methodLabels
-     *
-     * @throws EmptyInvocationJournalLabelException
-     * @throws InvocationJournalAlreadyRegisteredException
-     * @throws MethodCannotBeConfiguredException
-     * @throws TestDoubleSealedException
-     */
-    public function recordInvocationsIn(InvocationJournal $journal, ?string $label = null, array $methodLabels = []): void
-    {
-        assert($journal instanceof InvocationJournalInternal);
-
-        $this->__phpunit_getInvocationHandler()->recordInvocationsIn($journal, $label, $methodLabels);
     }
 }

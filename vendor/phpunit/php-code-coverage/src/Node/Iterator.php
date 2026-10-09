@@ -9,72 +9,79 @@
  */
 namespace SebastianBergmann\CodeCoverage\Node;
 
-use function assert;
+use function count;
 use RecursiveIterator;
 
 /**
- * @template-implements RecursiveIterator<int, AbstractNode>
- *
  * @internal This class is not covered by the backward compatibility promise for phpunit/php-code-coverage
- *
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for phpunit/php-code-coverage
  */
 final class Iterator implements RecursiveIterator
 {
+    private int $position;
+
     /**
      * @var list<AbstractNode>
      */
     private readonly array $nodes;
-
-    /**
-     * @var non-negative-int
-     */
-    private int $position = 0;
 
     public function __construct(Directory $node)
     {
         $this->nodes = $node->children();
     }
 
+    /**
+     * Rewinds the Iterator to the first element.
+     */
     public function rewind(): void
     {
         $this->position = 0;
     }
 
+    /**
+     * Checks if there is a current element after calls to rewind() or next().
+     */
     public function valid(): bool
     {
-        return isset($this->nodes[$this->position]);
+        return $this->position < count($this->nodes);
     }
 
     /**
-     * @return non-negative-int
+     * Returns the key of the current element.
      */
     public function key(): int
     {
         return $this->position;
     }
 
+    /**
+     * Returns the current element.
+     */
     public function current(): ?AbstractNode
     {
-        return $this->nodes[$this->position] ?? null;
+        return $this->valid() ? $this->nodes[$this->position] : null;
     }
 
+    /**
+     * Moves forward to next element.
+     */
     public function next(): void
     {
         $this->position++;
     }
 
+    /**
+     * Returns the sub iterator for the current element.
+     */
     public function getChildren(): self
     {
-        $node = $this->nodes[$this->position] ?? null;
-
-        assert($node instanceof Directory);
-
-        return new self($node);
+        return new self($this->nodes[$this->position]);
     }
 
+    /**
+     * Checks whether the current element has children.
+     */
     public function hasChildren(): bool
     {
-        return ($this->nodes[$this->position] ?? null) instanceof Directory;
+        return $this->nodes[$this->position] instanceof Directory;
     }
 }

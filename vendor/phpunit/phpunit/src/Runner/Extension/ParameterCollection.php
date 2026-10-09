@@ -13,28 +13,22 @@ use function array_key_exists;
 use PHPUnit\Runner\ParameterDoesNotExistException;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class ParameterCollection
+final class ParameterCollection
 {
-    /**
-     * @var array<string, string>
-     */
-    private array $parameters;
+    private readonly array $parameters;
 
     /**
-     * @param array<string, string> $parameters
+     * @psalm-param array<string, string> $parameters
      */
     public static function fromArray(array $parameters): self
     {
         return new self($parameters);
     }
 
-    /**
-     * @param array<string, string> $parameters
-     */
     private function __construct(array $parameters)
     {
         $this->parameters = $parameters;
@@ -50,7 +44,7 @@ final readonly class ParameterCollection
      */
     public function get(string $name): string
     {
-        if (!array_key_exists($name, $this->parameters)) {
+        if (!$this->has($name)) {
             throw new ParameterDoesNotExistException($name);
         }
 

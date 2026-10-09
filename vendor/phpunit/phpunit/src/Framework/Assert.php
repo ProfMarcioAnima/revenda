@@ -9,8 +9,6 @@
  */
 namespace PHPUnit\Framework;
 
-use function array_combine;
-use function array_intersect_key;
 use function class_exists;
 use function count;
 use function file_get_contents;
@@ -19,9 +17,8 @@ use function is_bool;
 use ArrayAccess;
 use Countable;
 use Generator;
+use PHPUnit\Event;
 use PHPUnit\Framework\Constraint\ArrayHasKey;
-use PHPUnit\Framework\Constraint\ArraysAreEqual;
-use PHPUnit\Framework\Constraint\ArraysAreIdentical;
 use PHPUnit\Framework\Constraint\Callback;
 use PHPUnit\Framework\Constraint\Constraint;
 use PHPUnit\Framework\Constraint\Count;
@@ -60,7 +57,6 @@ use PHPUnit\Framework\Constraint\SameSize;
 use PHPUnit\Framework\Constraint\StringContains;
 use PHPUnit\Framework\Constraint\StringEndsWith;
 use PHPUnit\Framework\Constraint\StringEqualsStringIgnoringLineEndings;
-use PHPUnit\Framework\Constraint\StringEqualsStringIgnoringWhitespace;
 use PHPUnit\Framework\Constraint\StringMatchesFormatDescription;
 use PHPUnit\Framework\Constraint\StringStartsWith;
 use PHPUnit\Framework\Constraint\TraversableContainsEqual;
@@ -74,101 +70,10 @@ use PHPUnit\Util\Xml\XmlException;
  */
 abstract class Assert
 {
-    /** @var non-negative-int */
     private static int $count = 0;
 
     /**
-     * Asserts that two arrays are equal while only considering a list of keys.
-     *
-     * @param array<mixed>              $expected
-     * @param array<mixed>              $actual
-     * @param non-empty-list<array-key> $keysToBeConsidered
-     *
-     * @throws Exception
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArrayIsEqualToArrayOnlyConsideringListOfKeys(array $expected, array $actual, array $keysToBeConsidered, string $message = ''): void
-    {
-        $filteredExpected = [];
-
-        foreach ($keysToBeConsidered as $key) {
-            if (isset($expected[$key])) {
-                $filteredExpected[$key] = $expected[$key];
-            }
-        }
-
-        $filteredActual = [];
-
-        foreach ($keysToBeConsidered as $key) {
-            if (isset($actual[$key])) {
-                $filteredActual[$key] = $actual[$key];
-            }
-        }
-
-        self::assertEquals($filteredExpected, $filteredActual, $message);
-    }
-
-    /**
-     * Asserts that two arrays are equal while ignoring a list of keys.
-     *
-     * @param array<mixed>              $expected
-     * @param array<mixed>              $actual
-     * @param non-empty-list<array-key> $keysToBeIgnored
-     *
-     * @throws Exception
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArrayIsEqualToArrayIgnoringListOfKeys(array $expected, array $actual, array $keysToBeIgnored, string $message = ''): void
-    {
-        foreach ($keysToBeIgnored as $key) {
-            unset($expected[$key], $actual[$key]);
-        }
-
-        self::assertEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two arrays are identical while only considering a list of keys.
-     *
-     * @param array<mixed>              $expected
-     * @param array<mixed>              $actual
-     * @param non-empty-list<array-key> $keysToBeConsidered
-     *
-     * @throws Exception
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArrayIsIdenticalToArrayOnlyConsideringListOfKeys(array $expected, array $actual, array $keysToBeConsidered, string $message = ''): void
-    {
-        $keysToBeConsidered = array_combine($keysToBeConsidered, $keysToBeConsidered);
-        $expected           = array_intersect_key($expected, $keysToBeConsidered);
-        $actual             = array_intersect_key($actual, $keysToBeConsidered);
-
-        self::assertSame($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two arrays are equal while ignoring a list of keys.
-     *
-     * @param array<mixed>              $expected
-     * @param array<mixed>              $actual
-     * @param non-empty-list<array-key> $keysToBeIgnored
-     *
-     * @throws Exception
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArrayIsIdenticalToArrayIgnoringListOfKeys(array $expected, array $actual, array $keysToBeIgnored, string $message = ''): void
-    {
-        foreach ($keysToBeIgnored as $key) {
-            unset($expected[$key], $actual[$key]);
-        }
-
-        self::assertSame($expected, $actual, $message);
-    }
-
-    /**
      * Asserts that an array has a specified key.
-     *
-     * @param array<mixed>|ArrayAccess<array-key, covariant mixed> $array
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -177,13 +82,11 @@ abstract class Assert
     {
         $constraint = new ArrayHasKey($key);
 
-        self::assertThat($array, $constraint, $message);
+        static::assertThat($array, $constraint, $message);
     }
 
     /**
      * Asserts that an array does not have a specified key.
-     *
-     * @param array<mixed>|ArrayAccess<array-key, covariant mixed> $array
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -194,17 +97,15 @@ abstract class Assert
             new ArrayHasKey($key),
         );
 
-        self::assertThat($array, $constraint, $message);
+        static::assertThat($array, $constraint, $message);
     }
 
     /**
-     * @phpstan-assert list<mixed> $array
-     *
      * @throws ExpectationFailedException
      */
     final public static function assertIsList(mixed $array, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $array,
             new IsList,
             $message,
@@ -212,157 +113,7 @@ abstract class Assert
     }
 
     /**
-     * Assert that two arrays are identical.
-     *
-     * The (key, value) relationship matters, the order of the (key, value) pairs in the array matters, and keys as well as values are compared strictly.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysAreIdentical(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreIdentical($expected, true, true),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays are identical while ignoring the order of their values.
-     *
-     * The (key, value) relationship matters, the order of the (key, value) pairs in the array does not matter, and keys as well as values are compared strictly.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysAreIdenticalIgnoringOrder(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreIdentical($expected, true, false),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays have identical values.
-     *
-     * The (key, value) relationship does not matter, the order of the (key, value) pairs in the array matters, and values are compared strictly.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysHaveIdenticalValues(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreIdentical($expected, false, true),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays have identical values while ignoring the order of these values.
-     *
-     * The (key, value) relationship does not matter, the order of the (key, value) pairs in the array does not matter, and values are compared strictly.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysHaveIdenticalValuesIgnoringOrder(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreIdentical($expected, false, false),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays are equal.
-     *
-     * The (key, value) relationship matters, the order of the (key, value) pairs in the array matters, and keys as well as values are compared loosely.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     */
-    final public static function assertArraysAreEqual(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreEqual($expected, true, true),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays are equal while ignoring the order of their values.
-     *
-     * The (key, value) relationship matters, the order of the (key, value) pairs in the array does not matter, and keys as well as values are compared loosely.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysAreEqualIgnoringOrder(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreEqual($expected, true, false),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays have equal values.
-     *
-     * The (key, value) relationship does not matter, the order of the (key, value) pairs in the array matters, and values are compared loosely.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     */
-    final public static function assertArraysHaveEqualValues(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreEqual($expected, false, true),
-            $message,
-        );
-    }
-
-    /**
-     * Assert that two arrays have equal values while ignoring the order of these values.
-     *
-     * The (key, value) relationship does not matter, the order of the (key, value) pairs in the array does not matter, and values are compared loosely.
-     *
-     * @param array<mixed> $expected
-     * @param array<mixed> $actual
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertArraysHaveEqualValuesIgnoringOrder(array $expected, array $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new ArraysAreEqual($expected, false, false),
-            $message,
-        );
-    }
-
-    /**
      * Asserts that a haystack contains a needle.
-     *
-     * @param iterable<mixed> $haystack
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -371,25 +122,21 @@ abstract class Assert
     {
         $constraint = new TraversableContainsIdentical($needle);
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
-     * @param iterable<mixed> $haystack
-     *
      * @throws ExpectationFailedException
      */
     final public static function assertContainsEquals(mixed $needle, iterable $haystack, string $message = ''): void
     {
         $constraint = new TraversableContainsEqual($needle);
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
      * Asserts that a haystack does not contain a needle.
-     *
-     * @param iterable<mixed> $haystack
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -400,578 +147,78 @@ abstract class Assert
             new TraversableContainsIdentical($needle),
         );
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
-     * @param iterable<mixed> $haystack
-     *
      * @throws ExpectationFailedException
      */
     final public static function assertNotContainsEquals(mixed $needle, iterable $haystack, string $message = ''): void
     {
         $constraint = new LogicalNot(new TraversableContainsEqual($needle));
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
-     * Asserts that a haystack contains only values of type array.
+     * Asserts that a haystack contains only values of a given type.
      *
-     * @phpstan-assert iterable<array<mixed>> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
+     * @throws Exception
      * @throws ExpectationFailedException
      */
-    final public static function assertContainsOnlyArray(iterable $haystack, string $message = ''): void
+    final public static function assertContainsOnly(string $type, iterable $haystack, ?bool $isNativeType = null, string $message = ''): void
     {
-        self::assertThat(
+        if ($isNativeType === null) {
+            $isNativeType = self::isNativeType($type);
+        }
+
+        static::assertThat(
             $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Array,
+            new TraversableContainsOnly(
+                $type,
+                $isNativeType,
             ),
             $message,
         );
     }
 
     /**
-     * Asserts that a haystack contains only values of type bool.
-     *
-     * @phpstan-assert iterable<bool> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyBool(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Bool,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type callable.
-     *
-     * @phpstan-assert iterable<callable> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyCallable(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Callable,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type float.
-     *
-     * @phpstan-assert iterable<float> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyFloat(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Float,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type int.
-     *
-     * @phpstan-assert iterable<int> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyInt(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Int,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type iterable.
-     *
-     * @phpstan-assert iterable<iterable<mixed>> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyIterable(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Iterable,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type null.
-     *
-     * @phpstan-assert iterable<null> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyNull(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Null,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type numeric.
-     *
-     * @phpstan-assert iterable<numeric> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyNumeric(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Numeric,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type object.
-     *
-     * @phpstan-assert iterable<object> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyObject(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Object,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type resource.
-     *
-     * @phpstan-assert iterable<resource> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyResource(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Resource,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type closed resource.
-     *
-     * @phpstan-assert iterable<resource> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyClosedResource(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::ClosedResource,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type scalar.
-     *
-     * @phpstan-assert iterable<scalar> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyScalar(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::Scalar,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only values of type string.
-     *
-     * @phpstan-assert iterable<string> $haystack
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsOnlyString(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            TraversableContainsOnly::forNativeType(
-                NativeType::String,
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack contains only instances of a specified interface or class name.
-     *
-     * @template T of object
-     *
-     * @phpstan-assert iterable<T> $haystack
-     *
-     * @param class-string<T> $className
-     * @param iterable<mixed> $haystack
+     * Asserts that a haystack contains only instances of a given class name.
      *
      * @throws Exception
      * @throws ExpectationFailedException
      */
     final public static function assertContainsOnlyInstancesOf(string $className, iterable $haystack, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $haystack,
-            TraversableContainsOnly::forClassOrInterface($className),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type array.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyArray(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Array,
-                ),
+            new TraversableContainsOnly(
+                $className,
+                false,
             ),
             $message,
         );
     }
 
     /**
-     * Asserts that a haystack does not contain only values of type bool.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyBool(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Bool,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type callable.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyCallable(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Callable,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type float.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyFloat(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Float,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type int.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyInt(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Int,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type iterable.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyIterable(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Iterable,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type null.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyNull(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Null,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type numeric.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyNumeric(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Numeric,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type object.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyObject(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Object,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type resource.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyResource(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Resource,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type closed resource.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyClosedResource(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::ClosedResource,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type scalar.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyScalar(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::Scalar,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only values of type string.
-     *
-     * @param iterable<mixed> $haystack
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertContainsNotOnlyString(iterable $haystack, string $message = ''): void
-    {
-        self::assertThat(
-            $haystack,
-            new LogicalNot(
-                TraversableContainsOnly::forNativeType(
-                    NativeType::String,
-                ),
-            ),
-            $message,
-        );
-    }
-
-    /**
-     * Asserts that a haystack does not contain only instances of a specified interface or class name.
-     *
-     * @param class-string    $className
-     * @param iterable<mixed> $haystack
+     * Asserts that a haystack does not contain only values of a given type.
      *
      * @throws Exception
      * @throws ExpectationFailedException
      */
-    final public static function assertContainsNotOnlyInstancesOf(string $className, iterable $haystack, string $message = ''): void
+    final public static function assertNotContainsOnly(string $type, iterable $haystack, ?bool $isNativeType = null, string $message = ''): void
     {
-        self::assertThat(
+        if ($isNativeType === null) {
+            $isNativeType = self::isNativeType($type);
+        }
+
+        static::assertThat(
             $haystack,
             new LogicalNot(
-                TraversableContainsOnly::forClassOrInterface($className),
+                new TraversableContainsOnly(
+                    $type,
+                    $isNativeType,
+                ),
             ),
             $message,
         );
@@ -979,8 +226,6 @@ abstract class Assert
 
     /**
      * Asserts the number of elements of an array, Countable or Traversable.
-     *
-     * @param Countable|iterable<mixed> $haystack
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -992,7 +237,7 @@ abstract class Assert
             throw GeneratorNotSupportedException::fromParameterName('$haystack');
         }
 
-        self::assertThat(
+        static::assertThat(
             $haystack,
             new Count($expectedCount),
             $message,
@@ -1001,8 +246,6 @@ abstract class Assert
 
     /**
      * Asserts the number of elements of an array, Countable or Traversable.
-     *
-     * @param Countable|iterable<mixed> $haystack
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -1018,13 +261,11 @@ abstract class Assert
             new Count($expectedCount),
         );
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are equal.
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1032,13 +273,11 @@ abstract class Assert
     {
         $constraint = new IsEqual($expected);
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are equal (canonicalizing).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1046,13 +285,11 @@ abstract class Assert
     {
         $constraint = new IsEqualCanonicalizing($expected);
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are equal (ignoring case).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1060,13 +297,11 @@ abstract class Assert
     {
         $constraint = new IsEqualIgnoringCase($expected);
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are equal (with delta).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1077,13 +312,11 @@ abstract class Assert
             $delta,
         );
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are not equal.
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1093,13 +326,11 @@ abstract class Assert
             new IsEqual($expected),
         );
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are not equal (canonicalizing).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1109,13 +340,11 @@ abstract class Assert
             new IsEqualCanonicalizing($expected),
         );
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are not equal (ignoring case).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1125,13 +354,11 @@ abstract class Assert
             new IsEqualIgnoringCase($expected),
         );
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
      * Asserts that two variables are not equal (with delta).
-     *
-     * Comparison is performed using the == operator (loose comparison) and may be performed by a type-specific comparator which may apply type coercion.
      *
      * @throws ExpectationFailedException
      */
@@ -1144,7 +371,7 @@ abstract class Assert
             ),
         );
 
-        self::assertThat($actual, $constraint, $message);
+        static::assertThat($actual, $constraint, $message);
     }
 
     /**
@@ -1152,23 +379,9 @@ abstract class Assert
      */
     final public static function assertObjectEquals(object $expected, object $actual, string $method = 'equals', string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            self::objectEquals($expected, $method),
-            $message,
-        );
-    }
-
-    /**
-     * @throws ExpectationFailedException
-     */
-    final public static function assertObjectNotEquals(object $expected, object $actual, string $method = 'equals', string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            self::logicalNot(
-                self::objectEquals($expected, $method),
-            ),
+            static::objectEquals($expected, $method),
             $message,
         );
     }
@@ -1178,6 +391,8 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      * @throws GeneratorNotSupportedException
+     *
+     * @psalm-assert empty $actual
      */
     final public static function assertEmpty(mixed $actual, string $message = ''): void
     {
@@ -1185,7 +400,7 @@ abstract class Assert
             throw GeneratorNotSupportedException::fromParameterName('$actual');
         }
 
-        self::assertThat($actual, self::isEmpty(), $message);
+        static::assertThat($actual, static::isEmpty(), $message);
     }
 
     /**
@@ -1193,6 +408,8 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      * @throws GeneratorNotSupportedException
+     *
+     * @psalm-assert !empty $actual
      */
     final public static function assertNotEmpty(mixed $actual, string $message = ''): void
     {
@@ -1200,7 +417,7 @@ abstract class Assert
             throw GeneratorNotSupportedException::fromParameterName('$actual');
         }
 
-        self::assertThat($actual, self::logicalNot(self::isEmpty()), $message);
+        static::assertThat($actual, static::logicalNot(static::isEmpty()), $message);
     }
 
     /**
@@ -1208,9 +425,9 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      */
-    final public static function assertGreaterThan(mixed $minimum, mixed $actual, string $message = ''): void
+    final public static function assertGreaterThan(mixed $expected, mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::greaterThan($minimum), $message);
+        static::assertThat($actual, static::greaterThan($expected), $message);
     }
 
     /**
@@ -1218,11 +435,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      */
-    final public static function assertGreaterThanOrEqual(mixed $minimum, mixed $actual, string $message = ''): void
+    final public static function assertGreaterThanOrEqual(mixed $expected, mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            self::greaterThanOrEqual($minimum),
+            static::greaterThanOrEqual($expected),
             $message,
         );
     }
@@ -1232,9 +449,9 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      */
-    final public static function assertLessThan(mixed $maximum, mixed $actual, string $message = ''): void
+    final public static function assertLessThan(mixed $expected, mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::lessThan($maximum), $message);
+        static::assertThat($actual, static::lessThan($expected), $message);
     }
 
     /**
@@ -1242,9 +459,9 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      */
-    final public static function assertLessThanOrEqual(mixed $maximum, mixed $actual, string $message = ''): void
+    final public static function assertLessThanOrEqual(mixed $expected, mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::lessThanOrEqual($maximum), $message);
+        static::assertThat($actual, static::lessThanOrEqual($expected), $message);
     }
 
     /**
@@ -1255,11 +472,12 @@ abstract class Assert
      */
     final public static function assertFileEquals(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new IsEqual(self::contentsOfFile($expected, $message)),
-            $message,
-        );
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
+
+        $constraint = new IsEqual(file_get_contents($expected));
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1270,11 +488,14 @@ abstract class Assert
      */
     final public static function assertFileEqualsCanonicalizing(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new IsEqualCanonicalizing(self::contentsOfFile($expected, $message)),
-            $message,
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
+
+        $constraint = new IsEqualCanonicalizing(
+            file_get_contents($expected),
         );
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1285,26 +506,12 @@ abstract class Assert
      */
     final public static function assertFileEqualsIgnoringCase(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new IsEqualIgnoringCase(self::contentsOfFile($expected, $message)),
-            $message,
-        );
-    }
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
 
-    /**
-     * Asserts that the contents of one file is equal to the contents of another
-     * file (ignoring whitespace).
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertFileEqualsFileIgnoringWhitespace(string $expected, string $actual, string $message = ''): void
-    {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new StringEqualsStringIgnoringWhitespace(self::contentsOfFile($expected, $message)),
-            $message,
-        );
+        $constraint = new IsEqualIgnoringCase(file_get_contents($expected));
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1315,13 +522,14 @@ abstract class Assert
      */
     final public static function assertFileNotEquals(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new LogicalNot(
-                new IsEqual(self::contentsOfFile($expected, $message)),
-            ),
-            $message,
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
+
+        $constraint = new LogicalNot(
+            new IsEqual(file_get_contents($expected)),
         );
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1332,13 +540,14 @@ abstract class Assert
      */
     final public static function assertFileNotEqualsCanonicalizing(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new LogicalNot(
-                new IsEqualCanonicalizing(self::contentsOfFile($expected, $message)),
-            ),
-            $message,
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
+
+        $constraint = new LogicalNot(
+            new IsEqualCanonicalizing(file_get_contents($expected)),
         );
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1349,30 +558,14 @@ abstract class Assert
      */
     final public static function assertFileNotEqualsIgnoringCase(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new LogicalNot(
-                new IsEqualIgnoringCase(self::contentsOfFile($expected, $message)),
-            ),
-            $message,
-        );
-    }
+        static::assertFileExists($expected, $message);
+        static::assertFileExists($actual, $message);
 
-    /**
-     * Asserts that the contents of one file is not equal to the contents of another
-     * file (ignoring whitespace).
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertFileNotEqualsFileIgnoringWhitespace(string $expected, string $actual, string $message = ''): void
-    {
-        self::assertThat(
-            self::contentsOfFile($actual, $message),
-            new LogicalNot(
-                new StringEqualsStringIgnoringWhitespace(self::contentsOfFile($expected, $message)),
-            ),
-            $message,
+        $constraint = new LogicalNot(
+            new IsEqualIgnoringCase(file_get_contents($expected)),
         );
+
+        static::assertThat(file_get_contents($actual), $constraint, $message);
     }
 
     /**
@@ -1383,11 +576,11 @@ abstract class Assert
      */
     final public static function assertStringEqualsFile(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new IsEqual(self::contentsOfFile($expectedFile, $message)),
-            $message,
-        );
+        static::assertFileExists($expectedFile, $message);
+
+        $constraint = new IsEqual(file_get_contents($expectedFile));
+
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1398,11 +591,11 @@ abstract class Assert
      */
     final public static function assertStringEqualsFileCanonicalizing(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new IsEqualCanonicalizing(self::contentsOfFile($expectedFile, $message)),
-            $message,
-        );
+        static::assertFileExists($expectedFile, $message);
+
+        $constraint = new IsEqualCanonicalizing(file_get_contents($expectedFile));
+
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1413,11 +606,11 @@ abstract class Assert
      */
     final public static function assertStringEqualsFileIgnoringCase(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new IsEqualIgnoringCase(self::contentsOfFile($expectedFile, $message)),
-            $message,
-        );
+        static::assertFileExists($expectedFile, $message);
+
+        $constraint = new IsEqualIgnoringCase(file_get_contents($expectedFile));
+
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1428,13 +621,13 @@ abstract class Assert
      */
     final public static function assertStringNotEqualsFile(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new LogicalNot(
-                new IsEqual(self::contentsOfFile($expectedFile, $message)),
-            ),
-            $message,
+        static::assertFileExists($expectedFile, $message);
+
+        $constraint = new LogicalNot(
+            new IsEqual(file_get_contents($expectedFile)),
         );
+
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1445,13 +638,13 @@ abstract class Assert
      */
     final public static function assertStringNotEqualsFileCanonicalizing(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new LogicalNot(
-                new IsEqualCanonicalizing(self::contentsOfFile($expectedFile, $message)),
-            ),
-            $message,
+        static::assertFileExists($expectedFile, $message);
+
+        $constraint = new LogicalNot(
+            new IsEqualCanonicalizing(file_get_contents($expectedFile)),
         );
+
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1462,45 +655,13 @@ abstract class Assert
      */
     final public static function assertStringNotEqualsFileIgnoringCase(string $expectedFile, string $actualString, string $message = ''): void
     {
-        self::assertThat(
-            $actualString,
-            new LogicalNot(
-                new IsEqualIgnoringCase(self::contentsOfFile($expectedFile, $message)),
-            ),
-            $message,
-        );
-    }
+        static::assertFileExists($expectedFile, $message);
 
-    /**
-     * Asserts that the contents of a string is equal
-     * to the contents of a file (ignoring whitespace).
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertStringEqualsFileIgnoringWhitespace(string $expectedFile, string $actualString, string $message = ''): void
-    {
-        self::assertThat(
-            $actualString,
-            new StringEqualsStringIgnoringWhitespace(self::contentsOfFile($expectedFile, $message)),
-            $message,
+        $constraint = new LogicalNot(
+            new IsEqualIgnoringCase(file_get_contents($expectedFile)),
         );
-    }
 
-    /**
-     * Asserts that the contents of a string is not equal
-     * to the contents of a file (ignoring whitespace).
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertStringNotEqualsFileIgnoringWhitespace(string $expectedFile, string $actualString, string $message = ''): void
-    {
-        self::assertThat(
-            $actualString,
-            new LogicalNot(
-                new StringEqualsStringIgnoringWhitespace(self::contentsOfFile($expectedFile, $message)),
-            ),
-            $message,
-        );
+        static::assertThat($actualString, $constraint, $message);
     }
 
     /**
@@ -1510,7 +671,7 @@ abstract class Assert
      */
     final public static function assertIsReadable(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new IsReadable, $message);
+        static::assertThat($filename, new IsReadable, $message);
     }
 
     /**
@@ -1520,7 +681,7 @@ abstract class Assert
      */
     final public static function assertIsNotReadable(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new LogicalNot(new IsReadable), $message);
+        static::assertThat($filename, new LogicalNot(new IsReadable), $message);
     }
 
     /**
@@ -1530,7 +691,7 @@ abstract class Assert
      */
     final public static function assertIsWritable(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new IsWritable, $message);
+        static::assertThat($filename, new IsWritable, $message);
     }
 
     /**
@@ -1540,7 +701,7 @@ abstract class Assert
      */
     final public static function assertIsNotWritable(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new LogicalNot(new IsWritable), $message);
+        static::assertThat($filename, new LogicalNot(new IsWritable), $message);
     }
 
     /**
@@ -1550,7 +711,7 @@ abstract class Assert
      */
     final public static function assertDirectoryExists(string $directory, string $message = ''): void
     {
-        self::assertThat($directory, new DirectoryExists, $message);
+        static::assertThat($directory, new DirectoryExists, $message);
     }
 
     /**
@@ -1560,7 +721,7 @@ abstract class Assert
      */
     final public static function assertDirectoryDoesNotExist(string $directory, string $message = ''): void
     {
-        self::assertThat($directory, new LogicalNot(new DirectoryExists), $message);
+        static::assertThat($directory, new LogicalNot(new DirectoryExists), $message);
     }
 
     /**
@@ -1614,7 +775,7 @@ abstract class Assert
      */
     final public static function assertFileExists(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new FileExists, $message);
+        static::assertThat($filename, new FileExists, $message);
     }
 
     /**
@@ -1624,7 +785,7 @@ abstract class Assert
      */
     final public static function assertFileDoesNotExist(string $filename, string $message = ''): void
     {
-        self::assertThat($filename, new LogicalNot(new FileExists), $message);
+        static::assertThat($filename, new LogicalNot(new FileExists), $message);
     }
 
     /**
@@ -1676,11 +837,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert true $condition
+     * @psalm-assert true $condition
      */
     final public static function assertTrue(mixed $condition, string $message = ''): void
     {
-        self::assertThat($condition, self::isTrue(), $message);
+        static::assertThat($condition, static::isTrue(), $message);
     }
 
     /**
@@ -1688,11 +849,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !true $condition
+     * @psalm-assert !true $condition
      */
     final public static function assertNotTrue(mixed $condition, string $message = ''): void
     {
-        self::assertThat($condition, self::logicalNot(self::isTrue()), $message);
+        static::assertThat($condition, static::logicalNot(static::isTrue()), $message);
     }
 
     /**
@@ -1700,11 +861,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert false $condition
+     * @psalm-assert false $condition
      */
     final public static function assertFalse(mixed $condition, string $message = ''): void
     {
-        self::assertThat($condition, self::isFalse(), $message);
+        static::assertThat($condition, static::isFalse(), $message);
     }
 
     /**
@@ -1712,11 +873,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !false $condition
+     * @psalm-assert !false $condition
      */
     final public static function assertNotFalse(mixed $condition, string $message = ''): void
     {
-        self::assertThat($condition, self::logicalNot(self::isFalse()), $message);
+        static::assertThat($condition, static::logicalNot(static::isFalse()), $message);
     }
 
     /**
@@ -1724,11 +885,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert null $actual
+     * @psalm-assert null $actual
      */
     final public static function assertNull(mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::isNull(), $message);
+        static::assertThat($actual, static::isNull(), $message);
     }
 
     /**
@@ -1736,11 +897,11 @@ abstract class Assert
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !null $actual
+     * @psalm-assert !null $actual
      */
     final public static function assertNotNull(mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::logicalNot(self::isNull()), $message);
+        static::assertThat($actual, static::logicalNot(static::isNull()), $message);
     }
 
     /**
@@ -1750,7 +911,7 @@ abstract class Assert
      */
     final public static function assertFinite(mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::isFinite(), $message);
+        static::assertThat($actual, static::isFinite(), $message);
     }
 
     /**
@@ -1760,7 +921,7 @@ abstract class Assert
      */
     final public static function assertInfinite(mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::isInfinite(), $message);
+        static::assertThat($actual, static::isInfinite(), $message);
     }
 
     /**
@@ -1770,7 +931,7 @@ abstract class Assert
      */
     final public static function assertNan(mixed $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::isNan(), $message);
+        static::assertThat($actual, static::isNan(), $message);
     }
 
     /**
@@ -1780,7 +941,7 @@ abstract class Assert
      */
     final public static function assertObjectHasProperty(string $propertyName, object $object, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $object,
             new ObjectHasProperty($propertyName),
             $message,
@@ -1794,7 +955,7 @@ abstract class Assert
      */
     final public static function assertObjectNotHasProperty(string $propertyName, object $object, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $object,
             new LogicalNot(
                 new ObjectHasProperty($propertyName),
@@ -1808,19 +969,17 @@ abstract class Assert
      * Used on objects, it asserts that two variables reference
      * the same object.
      *
-     * Comparison is performed using the === operator.
+     * @psalm-template ExpectedType
      *
-     * @template ExpectedType
-     *
-     * @param ExpectedType $expected
+     * @psalm-param ExpectedType $expected
      *
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert =ExpectedType $actual
+     * @psalm-assert =ExpectedType $actual
      */
     final public static function assertSame(mixed $expected, mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
             new IsIdentical($expected),
             $message,
@@ -1832,17 +991,15 @@ abstract class Assert
      * Used on objects, it asserts that two variables do not reference
      * the same object.
      *
-     * Comparison is performed using the === operator.
-     *
      * @throws ExpectationFailedException
      */
     final public static function assertNotSame(mixed $expected, mixed $actual, string $message = ''): void
     {
         if (is_bool($expected) && is_bool($actual)) {
-            self::assertNotEquals($expected, $actual, $message);
+            static::assertNotEquals($expected, $actual, $message);
         }
 
-        self::assertThat(
+        static::assertThat(
             $actual,
             new LogicalNot(
                 new IsIdentical($expected),
@@ -1854,15 +1011,15 @@ abstract class Assert
     /**
      * Asserts that a variable is of a given type.
      *
-     * @template ExpectedType of object
+     * @psalm-template ExpectedType of object
      *
-     * @param class-string<ExpectedType> $expected
+     * @psalm-param class-string<ExpectedType> $expected
      *
      * @throws Exception
      * @throws ExpectationFailedException
      * @throws UnknownClassOrInterfaceException
      *
-     * @phpstan-assert =ExpectedType $actual
+     * @psalm-assert =ExpectedType $actual
      */
     final public static function assertInstanceOf(string $expected, mixed $actual, string $message = ''): void
     {
@@ -1870,7 +1027,7 @@ abstract class Assert
             throw new UnknownClassOrInterfaceException($expected);
         }
 
-        self::assertThat(
+        static::assertThat(
             $actual,
             new IsInstanceOf($expected),
             $message,
@@ -1880,14 +1037,14 @@ abstract class Assert
     /**
      * Asserts that a variable is not of a given type.
      *
-     * @template ExpectedType of object
+     * @psalm-template ExpectedType of object
      *
-     * @param class-string<ExpectedType> $expected
+     * @psalm-param class-string<ExpectedType> $expected
      *
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !ExpectedType $actual
+     * @psalm-assert !ExpectedType $actual
      */
     final public static function assertNotInstanceOf(string $expected, mixed $actual, string $message = ''): void
     {
@@ -1895,7 +1052,7 @@ abstract class Assert
             throw new UnknownClassOrInterfaceException($expected);
         }
 
-        self::assertThat(
+        static::assertThat(
             $actual,
             new LogicalNot(
                 new IsInstanceOf($expected),
@@ -1910,13 +1067,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert array<mixed> $actual
+     * @psalm-assert array $actual
      */
     final public static function assertIsArray(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Array),
+            new IsType(IsType::TYPE_ARRAY),
             $message,
         );
     }
@@ -1927,13 +1084,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert bool $actual
+     * @psalm-assert bool $actual
      */
     final public static function assertIsBool(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Bool),
+            new IsType(IsType::TYPE_BOOL),
             $message,
         );
     }
@@ -1944,13 +1101,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert float $actual
+     * @psalm-assert float $actual
      */
     final public static function assertIsFloat(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Float),
+            new IsType(IsType::TYPE_FLOAT),
             $message,
         );
     }
@@ -1961,13 +1118,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert int $actual
+     * @psalm-assert int $actual
      */
     final public static function assertIsInt(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Int),
+            new IsType(IsType::TYPE_INT),
             $message,
         );
     }
@@ -1978,13 +1135,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert numeric $actual
+     * @psalm-assert numeric $actual
      */
     final public static function assertIsNumeric(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Numeric),
+            new IsType(IsType::TYPE_NUMERIC),
             $message,
         );
     }
@@ -1995,13 +1152,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert object $actual
+     * @psalm-assert object $actual
      */
     final public static function assertIsObject(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Object),
+            new IsType(IsType::TYPE_OBJECT),
             $message,
         );
     }
@@ -2012,13 +1169,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert resource $actual
+     * @psalm-assert resource $actual
      */
     final public static function assertIsResource(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Resource),
+            new IsType(IsType::TYPE_RESOURCE),
             $message,
         );
     }
@@ -2029,13 +1186,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert resource $actual
+     * @psalm-assert resource $actual
      */
     final public static function assertIsClosedResource(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::ClosedResource),
+            new IsType(IsType::TYPE_CLOSED_RESOURCE),
             $message,
         );
     }
@@ -2046,13 +1203,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert string $actual
+     * @psalm-assert string $actual
      */
     final public static function assertIsString(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::String),
+            new IsType(IsType::TYPE_STRING),
             $message,
         );
     }
@@ -2063,13 +1220,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert scalar $actual
+     * @psalm-assert scalar $actual
      */
     final public static function assertIsScalar(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Scalar),
+            new IsType(IsType::TYPE_SCALAR),
             $message,
         );
     }
@@ -2080,13 +1237,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert callable $actual
+     * @psalm-assert callable $actual
      */
     final public static function assertIsCallable(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Callable),
+            new IsType(IsType::TYPE_CALLABLE),
             $message,
         );
     }
@@ -2097,13 +1254,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert iterable<mixed> $actual
+     * @psalm-assert iterable $actual
      */
     final public static function assertIsIterable(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new IsType(NativeType::Iterable),
+            new IsType(IsType::TYPE_ITERABLE),
             $message,
         );
     }
@@ -2114,13 +1271,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !array<mixed> $actual
+     * @psalm-assert !array $actual
      */
     final public static function assertIsNotArray(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Array)),
+            new LogicalNot(new IsType(IsType::TYPE_ARRAY)),
             $message,
         );
     }
@@ -2131,13 +1288,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !bool $actual
+     * @psalm-assert !bool $actual
      */
     final public static function assertIsNotBool(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Bool)),
+            new LogicalNot(new IsType(IsType::TYPE_BOOL)),
             $message,
         );
     }
@@ -2148,13 +1305,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !float $actual
+     * @psalm-assert !float $actual
      */
     final public static function assertIsNotFloat(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Float)),
+            new LogicalNot(new IsType(IsType::TYPE_FLOAT)),
             $message,
         );
     }
@@ -2165,13 +1322,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !int $actual
+     * @psalm-assert !int $actual
      */
     final public static function assertIsNotInt(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Int)),
+            new LogicalNot(new IsType(IsType::TYPE_INT)),
             $message,
         );
     }
@@ -2182,13 +1339,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !numeric $actual
+     * @psalm-assert !numeric $actual
      */
     final public static function assertIsNotNumeric(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Numeric)),
+            new LogicalNot(new IsType(IsType::TYPE_NUMERIC)),
             $message,
         );
     }
@@ -2199,13 +1356,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !object $actual
+     * @psalm-assert !object $actual
      */
     final public static function assertIsNotObject(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Object)),
+            new LogicalNot(new IsType(IsType::TYPE_OBJECT)),
             $message,
         );
     }
@@ -2216,13 +1373,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !resource $actual
+     * @psalm-assert !resource $actual
      */
     final public static function assertIsNotResource(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Resource)),
+            new LogicalNot(new IsType(IsType::TYPE_RESOURCE)),
             $message,
         );
     }
@@ -2233,13 +1390,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !resource $actual
+     * @psalm-assert !resource $actual
      */
     final public static function assertIsNotClosedResource(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::ClosedResource)),
+            new LogicalNot(new IsType(IsType::TYPE_CLOSED_RESOURCE)),
             $message,
         );
     }
@@ -2250,13 +1407,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !string $actual
+     * @psalm-assert !string $actual
      */
     final public static function assertIsNotString(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::String)),
+            new LogicalNot(new IsType(IsType::TYPE_STRING)),
             $message,
         );
     }
@@ -2267,13 +1424,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !scalar $actual
+     * @psalm-assert !scalar $actual
      */
     final public static function assertIsNotScalar(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Scalar)),
+            new LogicalNot(new IsType(IsType::TYPE_SCALAR)),
             $message,
         );
     }
@@ -2284,13 +1441,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !callable $actual
+     * @psalm-assert !callable $actual
      */
     final public static function assertIsNotCallable(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Callable)),
+            new LogicalNot(new IsType(IsType::TYPE_CALLABLE)),
             $message,
         );
     }
@@ -2301,13 +1458,13 @@ abstract class Assert
      * @throws Exception
      * @throws ExpectationFailedException
      *
-     * @phpstan-assert !iterable<mixed> $actual
+     * @psalm-assert !iterable $actual
      */
     final public static function assertIsNotIterable(mixed $actual, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $actual,
-            new LogicalNot(new IsType(NativeType::Iterable)),
+            new LogicalNot(new IsType(IsType::TYPE_ITERABLE)),
             $message,
         );
     }
@@ -2319,7 +1476,7 @@ abstract class Assert
      */
     final public static function assertMatchesRegularExpression(string $pattern, string $string, string $message = ''): void
     {
-        self::assertThat($string, new RegularExpression($pattern), $message);
+        static::assertThat($string, new RegularExpression($pattern), $message);
     }
 
     /**
@@ -2329,7 +1486,7 @@ abstract class Assert
      */
     final public static function assertDoesNotMatchRegularExpression(string $pattern, string $string, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $string,
             new LogicalNot(
                 new RegularExpression($pattern),
@@ -2341,9 +1498,6 @@ abstract class Assert
     /**
      * Assert that the size of two arrays (or `Countable` or `Traversable` objects)
      * is the same.
-     *
-     * @param Countable|iterable<mixed> $expected
-     * @param Countable|iterable<mixed> $actual
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -2359,7 +1513,7 @@ abstract class Assert
             throw GeneratorNotSupportedException::fromParameterName('$actual');
         }
 
-        self::assertThat(
+        static::assertThat(
             $actual,
             new SameSize($expected),
             $message,
@@ -2369,9 +1523,6 @@ abstract class Assert
     /**
      * Assert that the size of two arrays (or `Countable` or `Traversable` objects)
      * is not the same.
-     *
-     * @param Countable|iterable<mixed> $expected
-     * @param Countable|iterable<mixed> $actual
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -2387,7 +1538,7 @@ abstract class Assert
             throw GeneratorNotSupportedException::fromParameterName('$actual');
         }
 
-        self::assertThat(
+        static::assertThat(
             $actual,
             new LogicalNot(
                 new SameSize($expected),
@@ -2401,7 +1552,7 @@ abstract class Assert
      */
     final public static function assertStringContainsStringIgnoringLineEndings(string $needle, string $haystack, string $message = ''): void
     {
-        self::assertThat($haystack, new StringContains($needle, false, true), $message);
+        static::assertThat($haystack, new StringContains($needle, false, true), $message);
     }
 
     /**
@@ -2411,33 +1562,7 @@ abstract class Assert
      */
     final public static function assertStringEqualsStringIgnoringLineEndings(string $expected, string $actual, string $message = ''): void
     {
-        self::assertThat($actual, new StringEqualsStringIgnoringLineEndings($expected), $message);
-    }
-
-    /**
-     * Asserts that two strings are equal ignoring whitespace.
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertStringEqualsStringIgnoringWhitespace(string $expected, string $actual, string $message = ''): void
-    {
-        self::assertThat($actual, self::stringEqualsStringIgnoringWhitespace($expected), $message);
-    }
-
-    /**
-     * Asserts that two strings are not equal ignoring whitespace.
-     *
-     * @throws ExpectationFailedException
-     */
-    final public static function assertStringNotEqualsStringIgnoringWhitespace(string $expected, string $actual, string $message = ''): void
-    {
-        self::assertThat(
-            $actual,
-            new LogicalNot(
-                self::stringEqualsStringIgnoringWhitespace($expected),
-            ),
-            $message,
-        );
+        static::assertThat($actual, new StringEqualsStringIgnoringLineEndings($expected), $message);
     }
 
     /**
@@ -2447,8 +1572,10 @@ abstract class Assert
      */
     final public static function assertFileMatchesFormat(string $format, string $actualFile, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actualFile, $message),
+        static::assertFileExists($actualFile, $message);
+
+        static::assertThat(
+            file_get_contents($actualFile),
             new StringMatchesFormatDescription($format),
             $message,
         );
@@ -2461,9 +1588,12 @@ abstract class Assert
      */
     final public static function assertFileMatchesFormatFile(string $formatFile, string $actualFile, string $message = ''): void
     {
-        self::assertThat(
-            self::contentsOfFile($actualFile, $message),
-            new StringMatchesFormatDescription(self::contentsOfFile($formatFile, $message)),
+        static::assertFileExists($formatFile, $message);
+        static::assertFileExists($actualFile, $message);
+
+        static::assertThat(
+            file_get_contents($actualFile),
+            new StringMatchesFormatDescription(file_get_contents($formatFile)),
             $message,
         );
     }
@@ -2475,7 +1605,25 @@ abstract class Assert
      */
     final public static function assertStringMatchesFormat(string $format, string $string, string $message = ''): void
     {
-        self::assertThat($string, new StringMatchesFormatDescription($format), $message);
+        static::assertThat($string, new StringMatchesFormatDescription($format), $message);
+    }
+
+    /**
+     * Asserts that a string does not match a given format string.
+     *
+     * @throws ExpectationFailedException
+     *
+     * @deprecated https://github.com/sebastianbergmann/phpunit/issues/5472
+     */
+    final public static function assertStringNotMatchesFormat(string $format, string $string, string $message = ''): void
+    {
+        static::assertThat(
+            $string,
+            new LogicalNot(
+                new StringMatchesFormatDescription($format),
+            ),
+            $message,
+        );
     }
 
     /**
@@ -2485,9 +1633,35 @@ abstract class Assert
      */
     final public static function assertStringMatchesFormatFile(string $formatFile, string $string, string $message = ''): void
     {
-        self::assertThat(
+        static::assertFileExists($formatFile, $message);
+
+        static::assertThat(
             $string,
-            new StringMatchesFormatDescription(self::contentsOfFile($formatFile, $message)),
+            new StringMatchesFormatDescription(
+                file_get_contents($formatFile),
+            ),
+            $message,
+        );
+    }
+
+    /**
+     * Asserts that a string does not match a given format string.
+     *
+     * @throws ExpectationFailedException
+     *
+     * @deprecated https://github.com/sebastianbergmann/phpunit/issues/5472
+     */
+    final public static function assertStringNotMatchesFormatFile(string $formatFile, string $string, string $message = ''): void
+    {
+        static::assertFileExists($formatFile, $message);
+
+        static::assertThat(
+            $string,
+            new LogicalNot(
+                new StringMatchesFormatDescription(
+                    file_get_contents($formatFile),
+                ),
+            ),
             $message,
         );
     }
@@ -2495,27 +1669,27 @@ abstract class Assert
     /**
      * Asserts that a string starts with a given prefix.
      *
-     * @param non-empty-string $prefix
+     * @psalm-param non-empty-string $prefix
      *
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
      */
     final public static function assertStringStartsWith(string $prefix, string $string, string $message = ''): void
     {
-        self::assertThat($string, new StringStartsWith($prefix), $message);
+        static::assertThat($string, new StringStartsWith($prefix), $message);
     }
 
     /**
      * Asserts that a string starts not with a given prefix.
      *
-     * @param non-empty-string $prefix
+     * @psalm-param non-empty-string $prefix
      *
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
      */
     final public static function assertStringStartsNotWith(string $prefix, string $string, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $string,
             new LogicalNot(
                 new StringStartsWith($prefix),
@@ -2531,7 +1705,7 @@ abstract class Assert
     {
         $constraint = new StringContains($needle);
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
@@ -2541,7 +1715,7 @@ abstract class Assert
     {
         $constraint = new StringContains($needle, true);
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
@@ -2551,7 +1725,7 @@ abstract class Assert
     {
         $constraint = new LogicalNot(new StringContains($needle));
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
@@ -2561,33 +1735,33 @@ abstract class Assert
     {
         $constraint = new LogicalNot(new StringContains($needle, true));
 
-        self::assertThat($haystack, $constraint, $message);
+        static::assertThat($haystack, $constraint, $message);
     }
 
     /**
      * Asserts that a string ends with a given suffix.
      *
-     * @param non-empty-string $suffix
+     * @psalm-param non-empty-string $suffix
      *
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
      */
     final public static function assertStringEndsWith(string $suffix, string $string, string $message = ''): void
     {
-        self::assertThat($string, new StringEndsWith($suffix), $message);
+        static::assertThat($string, new StringEndsWith($suffix), $message);
     }
 
     /**
      * Asserts that a string ends not with a given suffix.
      *
-     * @param non-empty-string $suffix
+     * @psalm-param non-empty-string $suffix
      *
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
      */
     final public static function assertStringEndsNotWith(string $suffix, string $string, string $message = ''): void
     {
-        self::assertThat(
+        static::assertThat(
             $string,
             new LogicalNot(
                 new StringEndsWith($suffix),
@@ -2597,7 +1771,7 @@ abstract class Assert
     }
 
     /**
-     * Asserts that two XML files are equal, ignoring comments.
+     * Asserts that two XML files are equal.
      *
      * @throws Exception
      * @throws ExpectationFailedException
@@ -2605,165 +1779,80 @@ abstract class Assert
      */
     final public static function assertXmlFileEqualsXmlFile(string $expectedFile, string $actualFile, string $message = ''): void
     {
-        $expected = (new XmlLoader)->loadFile($expectedFile, true);
-        $actual   = (new XmlLoader)->loadFile($actualFile, true);
+        $expected = (new XmlLoader)->loadFile($expectedFile);
+        $actual   = (new XmlLoader)->loadFile($actualFile);
 
-        self::assertEquals($expected, $actual, $message);
+        static::assertEquals($expected, $actual, $message);
     }
 
     /**
-     * Asserts that two XML files are not equal, ignoring comments.
+     * Asserts that two XML files are not equal.
      *
      * @throws \PHPUnit\Util\Exception
      * @throws ExpectationFailedException
      */
     final public static function assertXmlFileNotEqualsXmlFile(string $expectedFile, string $actualFile, string $message = ''): void
     {
-        $expected = (new XmlLoader)->loadFile($expectedFile, true);
-        $actual   = (new XmlLoader)->loadFile($actualFile, true);
+        $expected = (new XmlLoader)->loadFile($expectedFile);
+        $actual   = (new XmlLoader)->loadFile($actualFile);
 
-        self::assertNotEquals($expected, $actual, $message);
+        static::assertNotEquals($expected, $actual, $message);
     }
 
     /**
-     * Asserts that two XML documents are equal, ignoring comments.
+     * Asserts that two XML documents are equal.
      *
      * @throws ExpectationFailedException
      * @throws XmlException
      */
     final public static function assertXmlStringEqualsXmlFile(string $expectedFile, string $actualXml, string $message = ''): void
     {
-        $expected = (new XmlLoader)->loadFile($expectedFile, true);
-        $actual   = (new XmlLoader)->load($actualXml, true);
+        $expected = (new XmlLoader)->loadFile($expectedFile);
+        $actual   = (new XmlLoader)->load($actualXml);
 
-        self::assertEquals($expected, $actual, $message);
+        static::assertEquals($expected, $actual, $message);
     }
 
     /**
-     * Asserts that two XML documents are not equal, ignoring comments.
+     * Asserts that two XML documents are not equal.
      *
      * @throws ExpectationFailedException
      * @throws XmlException
      */
     final public static function assertXmlStringNotEqualsXmlFile(string $expectedFile, string $actualXml, string $message = ''): void
     {
-        $expected = (new XmlLoader)->loadFile($expectedFile, true);
-        $actual   = (new XmlLoader)->load($actualXml, true);
+        $expected = (new XmlLoader)->loadFile($expectedFile);
+        $actual   = (new XmlLoader)->load($actualXml);
 
-        self::assertNotEquals($expected, $actual, $message);
+        static::assertNotEquals($expected, $actual, $message);
     }
 
     /**
-     * Asserts that two XML documents are equal, ignoring comments.
+     * Asserts that two XML documents are equal.
      *
      * @throws ExpectationFailedException
      * @throws XmlException
      */
     final public static function assertXmlStringEqualsXmlString(string $expectedXml, string $actualXml, string $message = ''): void
     {
-        $expected = (new XmlLoader)->load($expectedXml, true);
-        $actual   = (new XmlLoader)->load($actualXml, true);
+        $expected = (new XmlLoader)->load($expectedXml);
+        $actual   = (new XmlLoader)->load($actualXml);
 
-        self::assertEquals($expected, $actual, $message);
+        static::assertEquals($expected, $actual, $message);
     }
 
     /**
-     * Asserts that two XML documents are not equal, ignoring comments.
+     * Asserts that two XML documents are not equal.
      *
      * @throws ExpectationFailedException
      * @throws XmlException
      */
     final public static function assertXmlStringNotEqualsXmlString(string $expectedXml, string $actualXml, string $message = ''): void
     {
-        $expected = (new XmlLoader)->load($expectedXml, true);
-        $actual   = (new XmlLoader)->load($actualXml, true);
-
-        self::assertNotEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML files are equal, considering comments.
-     *
-     * @throws Exception
-     * @throws ExpectationFailedException
-     * @throws XmlException
-     */
-    final public static function assertXmlFileEqualsXmlFileConsideringComments(string $expectedFile, string $actualFile, string $message = ''): void
-    {
-        $expected = (new XmlLoader)->loadFile($expectedFile);
-        $actual   = (new XmlLoader)->loadFile($actualFile);
-
-        self::assertEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML files are not equal, considering comments.
-     *
-     * @throws \PHPUnit\Util\Exception
-     * @throws ExpectationFailedException
-     */
-    final public static function assertXmlFileNotEqualsXmlFileConsideringComments(string $expectedFile, string $actualFile, string $message = ''): void
-    {
-        $expected = (new XmlLoader)->loadFile($expectedFile);
-        $actual   = (new XmlLoader)->loadFile($actualFile);
-
-        self::assertNotEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML documents are equal, considering comments.
-     *
-     * @throws ExpectationFailedException
-     * @throws XmlException
-     */
-    final public static function assertXmlStringEqualsXmlFileConsideringComments(string $expectedFile, string $actualXml, string $message = ''): void
-    {
-        $expected = (new XmlLoader)->loadFile($expectedFile);
-        $actual   = (new XmlLoader)->load($actualXml);
-
-        self::assertEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML documents are not equal, considering comments.
-     *
-     * @throws ExpectationFailedException
-     * @throws XmlException
-     */
-    final public static function assertXmlStringNotEqualsXmlFileConsideringComments(string $expectedFile, string $actualXml, string $message = ''): void
-    {
-        $expected = (new XmlLoader)->loadFile($expectedFile);
-        $actual   = (new XmlLoader)->load($actualXml);
-
-        self::assertNotEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML documents are equal, considering comments.
-     *
-     * @throws ExpectationFailedException
-     * @throws XmlException
-     */
-    final public static function assertXmlStringEqualsXmlStringConsideringComments(string $expectedXml, string $actualXml, string $message = ''): void
-    {
         $expected = (new XmlLoader)->load($expectedXml);
         $actual   = (new XmlLoader)->load($actualXml);
 
-        self::assertEquals($expected, $actual, $message);
-    }
-
-    /**
-     * Asserts that two XML documents are not equal, considering comments.
-     *
-     * @throws ExpectationFailedException
-     * @throws XmlException
-     */
-    final public static function assertXmlStringNotEqualsXmlStringConsideringComments(string $expectedXml, string $actualXml, string $message = ''): void
-    {
-        $expected = (new XmlLoader)->load($expectedXml);
-        $actual   = (new XmlLoader)->load($actualXml);
-
-        self::assertNotEquals($expected, $actual, $message);
+        static::assertNotEquals($expected, $actual, $message);
     }
 
     /**
@@ -2775,7 +1864,27 @@ abstract class Assert
     {
         self::$count += count($constraint);
 
-        $constraint->evaluate($value, $message);
+        $hasFailed = true;
+
+        try {
+            $constraint->evaluate($value, $message);
+
+            $hasFailed = false;
+        } finally {
+            if ($hasFailed) {
+                Event\Facade::emitter()->testAssertionFailed(
+                    $value,
+                    $constraint,
+                    $message,
+                );
+            } else {
+                Event\Facade::emitter()->testAssertionSucceeded(
+                    $value,
+                    $constraint,
+                    $message,
+                );
+            }
+        }
     }
 
     /**
@@ -2785,7 +1894,7 @@ abstract class Assert
      */
     final public static function assertJson(string $actual, string $message = ''): void
     {
-        self::assertThat($actual, self::isJson(), $message);
+        static::assertThat($actual, static::isJson(), $message);
     }
 
     /**
@@ -2795,10 +1904,10 @@ abstract class Assert
      */
     final public static function assertJsonStringEqualsJsonString(string $expectedJson, string $actualJson, string $message = ''): void
     {
-        self::assertJson($expectedJson, $message);
-        self::assertJson($actualJson, $message);
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
 
-        self::assertThat($actualJson, new JsonMatches($expectedJson), $message);
+        static::assertThat($actualJson, new JsonMatches($expectedJson), $message);
     }
 
     /**
@@ -2808,10 +1917,10 @@ abstract class Assert
      */
     final public static function assertJsonStringNotEqualsJsonString(string $expectedJson, string $actualJson, string $message = ''): void
     {
-        self::assertJson($expectedJson, $message);
-        self::assertJson($actualJson, $message);
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
 
-        self::assertThat(
+        static::assertThat(
             $actualJson,
             new LogicalNot(
                 new JsonMatches($expectedJson),
@@ -2827,13 +1936,13 @@ abstract class Assert
      */
     final public static function assertJsonStringEqualsJsonFile(string $expectedFile, string $actualJson, string $message = ''): void
     {
-        self::assertJson($actualJson, $message);
+        static::assertFileExists($expectedFile, $message);
+        $expectedJson = file_get_contents($expectedFile);
 
-        $expectedJson = self::contentsOfFile($expectedFile, $message);
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
 
-        self::assertJson($expectedJson, $message);
-
-        self::assertThat($actualJson, new JsonMatches($expectedJson), $message);
+        static::assertThat($actualJson, new JsonMatches($expectedJson), $message);
     }
 
     /**
@@ -2843,13 +1952,13 @@ abstract class Assert
      */
     final public static function assertJsonStringNotEqualsJsonFile(string $expectedFile, string $actualJson, string $message = ''): void
     {
-        self::assertJson($actualJson, $message);
+        static::assertFileExists($expectedFile, $message);
+        $expectedJson = file_get_contents($expectedFile);
 
-        $expectedJson = self::contentsOfFile($expectedFile, $message);
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
 
-        self::assertJson($expectedJson, $message);
-
-        self::assertThat(
+        static::assertThat(
             $actualJson,
             new LogicalNot(
                 new JsonMatches($expectedJson),
@@ -2865,17 +1974,23 @@ abstract class Assert
      */
     final public static function assertJsonFileEqualsJsonFile(string $expectedFile, string $actualFile, string $message = ''): void
     {
-        $expectedJson = self::contentsOfFile($expectedFile, $message);
-        self::assertJson($expectedJson, $message);
+        static::assertFileExists($expectedFile, $message);
+        static::assertFileExists($actualFile, $message);
 
-        $actualJson = self::contentsOfFile($actualFile, $message);
-        self::assertJson($actualJson, $message);
+        $actualJson   = file_get_contents($actualFile);
+        $expectedJson = file_get_contents($expectedFile);
 
-        self::assertThat(
-            $actualJson,
-            new JsonMatches($expectedJson),
-            $message,
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
+
+        $constraintExpected = new JsonMatches(
+            $expectedJson,
         );
+
+        $constraintActual = new JsonMatches($actualJson);
+
+        static::assertThat($expectedJson, $constraintActual, $message);
+        static::assertThat($actualJson, $constraintExpected, $message);
     }
 
     /**
@@ -2885,19 +2000,23 @@ abstract class Assert
      */
     final public static function assertJsonFileNotEqualsJsonFile(string $expectedFile, string $actualFile, string $message = ''): void
     {
-        $expectedJson = self::contentsOfFile($expectedFile, $message);
-        self::assertJson($expectedJson, $message);
+        static::assertFileExists($expectedFile, $message);
+        static::assertFileExists($actualFile, $message);
 
-        $actualJson = self::contentsOfFile($actualFile, $message);
-        self::assertJson($actualJson, $message);
+        $actualJson   = file_get_contents($actualFile);
+        $expectedJson = file_get_contents($expectedFile);
 
-        self::assertThat(
-            $actualJson,
-            new LogicalNot(
-                new JsonMatches($expectedJson),
-            ),
-            $message,
+        static::assertJson($expectedJson, $message);
+        static::assertJson($actualJson, $message);
+
+        $constraintExpected = new JsonMatches(
+            $expectedJson,
         );
+
+        $constraintActual = new JsonMatches($actualJson);
+
+        static::assertThat($expectedJson, new LogicalNot($constraintActual), $message);
+        static::assertThat($actualJson, new LogicalNot($constraintExpected), $message);
     }
 
     /**
@@ -2934,11 +2053,11 @@ abstract class Assert
     }
 
     /**
-     * @template CallbackInput of mixed
+     * @psalm-template CallbackInput of mixed
      *
-     * @param callable(CallbackInput $callback): bool $callback
+     * @psalm-param callable(CallbackInput $callback): bool $callback
      *
-     * @return Callback<CallbackInput>
+     * @psalm-return Callback<CallbackInput>
      */
     final public static function callback(callable $callback): Callback
     {
@@ -2985,79 +2104,20 @@ abstract class Assert
         return new TraversableContainsIdentical($value);
     }
 
-    final public static function containsOnlyArray(): TraversableContainsOnly
+    /**
+     * @throws Exception
+     */
+    final public static function containsOnly(string $type): TraversableContainsOnly
     {
-        return TraversableContainsOnly::forNativeType(NativeType::Array);
-    }
-
-    final public static function containsOnlyBool(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Bool);
-    }
-
-    final public static function containsOnlyCallable(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Callable);
-    }
-
-    final public static function containsOnlyFloat(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Float);
-    }
-
-    final public static function containsOnlyInt(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Int);
-    }
-
-    final public static function containsOnlyIterable(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Iterable);
-    }
-
-    final public static function containsOnlyNull(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Null);
-    }
-
-    final public static function containsOnlyNumeric(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Numeric);
-    }
-
-    final public static function containsOnlyObject(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Object);
-    }
-
-    final public static function containsOnlyResource(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Resource);
-    }
-
-    final public static function containsOnlyClosedResource(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::ClosedResource);
-    }
-
-    final public static function containsOnlyScalar(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::Scalar);
-    }
-
-    final public static function containsOnlyString(): TraversableContainsOnly
-    {
-        return TraversableContainsOnly::forNativeType(NativeType::String);
+        return new TraversableContainsOnly($type);
     }
 
     /**
-     * @param class-string $className
-     *
      * @throws Exception
      */
     final public static function containsOnlyInstancesOf(string $className): TraversableContainsOnly
     {
-        return TraversableContainsOnly::forClassOrInterface($className);
+        return new TraversableContainsOnly($className, false);
     }
 
     final public static function arrayHasKey(mixed $key): ArrayHasKey
@@ -3072,7 +2132,7 @@ abstract class Assert
 
     final public static function equalTo(mixed $value): IsEqual
     {
-        return new IsEqual($value);
+        return new IsEqual($value, 0.0, false, false);
     }
 
     final public static function equalToCanonicalizing(mixed $value): IsEqualCanonicalizing
@@ -3122,7 +2182,7 @@ abstract class Assert
 
     final public static function greaterThanOrEqual(mixed $value): LogicalOr
     {
-        return self::logicalOr(
+        return static::logicalOr(
             new IsEqual($value),
             new GreaterThan($value),
         );
@@ -3141,64 +2201,14 @@ abstract class Assert
         return new IsInstanceOf($className);
     }
 
-    final public static function isArray(): IsType
+    /**
+     * @psalm-param 'array'|'boolean'|'bool'|'double'|'float'|'integer'|'int'|'null'|'numeric'|'object'|'real'|'resource'|'resource (closed)'|'string'|'scalar'|'callable'|'iterable' $type
+     *
+     * @throws Exception
+     */
+    final public static function isType(string $type): IsType
     {
-        return new IsType(NativeType::Array);
-    }
-
-    final public static function isBool(): IsType
-    {
-        return new IsType(NativeType::Bool);
-    }
-
-    final public static function isCallable(): IsType
-    {
-        return new IsType(NativeType::Callable);
-    }
-
-    final public static function isFloat(): IsType
-    {
-        return new IsType(NativeType::Float);
-    }
-
-    final public static function isInt(): IsType
-    {
-        return new IsType(NativeType::Int);
-    }
-
-    final public static function isIterable(): IsType
-    {
-        return new IsType(NativeType::Iterable);
-    }
-
-    final public static function isNumeric(): IsType
-    {
-        return new IsType(NativeType::Numeric);
-    }
-
-    final public static function isObject(): IsType
-    {
-        return new IsType(NativeType::Object);
-    }
-
-    final public static function isResource(): IsType
-    {
-        return new IsType(NativeType::Resource);
-    }
-
-    final public static function isClosedResource(): IsType
-    {
-        return new IsType(NativeType::ClosedResource);
-    }
-
-    final public static function isScalar(): IsType
-    {
-        return new IsType(NativeType::Scalar);
-    }
-
-    final public static function isString(): IsType
-    {
-        return new IsType(NativeType::String);
+        return new IsType($type);
     }
 
     final public static function lessThan(mixed $value): LessThan
@@ -3208,7 +2218,7 @@ abstract class Assert
 
     final public static function lessThanOrEqual(mixed $value): LogicalOr
     {
-        return self::logicalOr(
+        return static::logicalOr(
             new IsEqual($value),
             new LessThan($value),
         );
@@ -3225,7 +2235,7 @@ abstract class Assert
     }
 
     /**
-     * @param non-empty-string $prefix
+     * @psalm-param non-empty-string $prefix
      *
      * @throws InvalidArgumentException
      */
@@ -3240,7 +2250,7 @@ abstract class Assert
     }
 
     /**
-     * @param non-empty-string $suffix
+     * @psalm-param non-empty-string $suffix
      *
      * @throws InvalidArgumentException
      */
@@ -3252,11 +2262,6 @@ abstract class Assert
     final public static function stringEqualsStringIgnoringLineEndings(string $string): StringEqualsStringIgnoringLineEndings
     {
         return new StringEqualsStringIgnoringLineEndings($string);
-    }
-
-    final public static function stringEqualsStringIgnoringWhitespace(string $string): StringEqualsStringIgnoringWhitespace
-    {
-        return new StringEqualsStringIgnoringWhitespace($string);
     }
 
     final public static function countOf(int $count): Count
@@ -3303,8 +2308,6 @@ abstract class Assert
 
     /**
      * Return the current assertion count.
-     *
-     * @return non-negative-int
      */
     final public static function getCount(): int
     {
@@ -3319,14 +2322,11 @@ abstract class Assert
         self::$count = 0;
     }
 
-    private static function contentsOfFile(string $path, string $message): string
+    private static function isNativeType(string $type): bool
     {
-        self::assertFileExists($path, $message);
-
-        $buffer = file_get_contents($path);
-
-        self::assertIsString($buffer);
-
-        return $buffer;
+        return match ($type) {
+            'numeric', 'integer', 'int', 'iterable', 'float', 'string', 'boolean', 'bool', 'null', 'array', 'object', 'resource', 'scalar' => true,
+            default                                                                                                                        => false,
+        };
     }
 }

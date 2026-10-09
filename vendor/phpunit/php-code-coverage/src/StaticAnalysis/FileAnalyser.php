@@ -9,80 +9,52 @@
  */
 namespace SebastianBergmann\CodeCoverage\StaticAnalysis;
 
-use function file_get_contents;
-use SebastianBergmann\CodeCoverage\Serialization\FileCouldNotBeReadException;
-
 /**
  * @internal This class is not covered by the backward compatibility promise for phpunit/php-code-coverage
  *
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for phpunit/php-code-coverage
+ * @psalm-import-type CodeUnitFunctionType from \SebastianBergmann\CodeCoverage\StaticAnalysis\CodeUnitFindingVisitor
+ * @psalm-import-type CodeUnitMethodType from \SebastianBergmann\CodeCoverage\StaticAnalysis\CodeUnitFindingVisitor
+ * @psalm-import-type CodeUnitClassType from \SebastianBergmann\CodeCoverage\StaticAnalysis\CodeUnitFindingVisitor
+ * @psalm-import-type CodeUnitTraitType from \SebastianBergmann\CodeCoverage\StaticAnalysis\CodeUnitFindingVisitor
+ * @psalm-import-type LinesOfCodeType from \SebastianBergmann\CodeCoverage\StaticAnalysis\FileAnalyser
+ * @psalm-import-type LinesType from \SebastianBergmann\CodeCoverage\StaticAnalysis\FileAnalyser
+ *
+ * @psalm-type LinesOfCodeType = array{
+ *     linesOfCode: int,
+ *     commentLinesOfCode: int,
+ *     nonCommentLinesOfCode: int
+ * }
+ * @psalm-type LinesType = array<int, int>
  */
-final class FileAnalyser
+interface FileAnalyser
 {
-    private readonly SourceAnalyser $sourceAnalyser;
-    private readonly bool $useAnnotationsForIgnoringCode;
-    private readonly bool $ignoreDeprecatedCode;
+    /**
+     * @psalm-return array<string, CodeUnitClassType>
+     */
+    public function classesIn(string $filename): array;
 
     /**
-     * @var array<non-empty-string, AnalysisResult>
+     * @psalm-return array<string, CodeUnitTraitType>
      */
-    private array $cache = [];
+    public function traitsIn(string $filename): array;
 
     /**
-     * @var array<non-empty-string, non-empty-string>
+     * @psalm-return array<string, CodeUnitFunctionType>
      */
-    private array $parseErrors = [];
-
-    public function __construct(SourceAnalyser $sourceAnalyser, bool $useAnnotationsForIgnoringCode, bool $ignoreDeprecatedCode)
-    {
-        $this->sourceAnalyser                = $sourceAnalyser;
-        $this->useAnnotationsForIgnoringCode = $useAnnotationsForIgnoringCode;
-        $this->ignoreDeprecatedCode          = $ignoreDeprecatedCode;
-    }
+    public function functionsIn(string $filename): array;
 
     /**
-     * @param non-empty-string $sourceCodeFile
-     *
-     * @throws FileCouldNotBeReadException
+     * @psalm-return LinesOfCodeType
      */
-    public function analyse(string $sourceCodeFile): AnalysisResult
-    {
-        if (isset($this->cache[$sourceCodeFile])) {
-            return $this->cache[$sourceCodeFile];
-        }
-
-        $sourceCode = file_get_contents($sourceCodeFile);
-
-        if ($sourceCode === false) {
-            // @codeCoverageIgnoreStart
-            throw new FileCouldNotBeReadException($sourceCodeFile);
-            // @codeCoverageIgnoreEnd
-        }
-
-        $analysisResult = $this->sourceAnalyser->analyse(
-            $sourceCodeFile,
-            $sourceCode,
-            $this->useAnnotationsForIgnoringCode,
-            $this->ignoreDeprecatedCode,
-        );
-
-        if (!$analysisResult->wasParsed()) {
-            $this->parseErrors[$sourceCodeFile] = $analysisResult->parseError();
-        }
-
-        $this->cache[$sourceCodeFile] = $analysisResult;
-
-        return $analysisResult;
-    }
+    public function linesOfCodeFor(string $filename): array;
 
     /**
-     * Returns the files that could not be parsed for static analysis,
-     * mapped to the parser's error message.
-     *
-     * @return array<non-empty-string, non-empty-string>
+     * @psalm-return LinesType
      */
-    public function parseErrors(): array
-    {
-        return $this->parseErrors;
-    }
+    public function executableLinesIn(string $filename): array;
+
+    /**
+     * @psalm-return LinesType
+     */
+    public function ignoredLinesFor(string $filename): array;
 }

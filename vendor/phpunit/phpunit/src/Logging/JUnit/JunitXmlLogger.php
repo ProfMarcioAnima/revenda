@@ -12,6 +12,7 @@ namespace PHPUnit\Logging\JUnit;
 use const PHP_EOL;
 use function assert;
 use function basename;
+use function is_int;
 use function sprintf;
 use function str_replace;
 use function trim;
@@ -19,12 +20,11 @@ use DOMDocument;
 use DOMElement;
 use PHPUnit\Event\Code\Test;
 use PHPUnit\Event\Code\TestMethod;
+use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\InvalidArgumentException;
 use PHPUnit\Event\Telemetry\HRTime;
 use PHPUnit\Event\Telemetry\Info;
-use PHPUnit\Event\Test\AttemptErrored;
-use PHPUnit\Event\Test\AttemptFailed;
 use PHPUnit\Event\Test\Errored;
 use PHPUnit\Event\Test\Failed;
 use PHPUnit\Event\Test\Finished;
@@ -33,8 +33,8 @@ use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\Prepared;
 use PHPUnit\Event\Test\PrintedUnexpectedOutput;
 use PHPUnit\Event\Test\Skipped;
-use PHPUnit\Event\TestSuite\Skipped as TestSuiteSkipped;
 use PHPUnit\Event\TestSuite\Started;
+use PHPUnit\Event\UnknownSubscriberTypeException;
 use PHPUnit\TextUI\Output\Printer;
 use PHPUnit\Util\Xml;
 
@@ -50,39 +50,39 @@ final class JunitXmlLogger
     private DOMElement $root;
 
     /**
-     * @var array<int, DOMElement>
+     * @var DOMElement[]
      */
     private array $testSuites = [];
 
     /**
-     * @var array<int, int>
+     * @psalm-var array<int,int>
      */
     private array $testSuiteTests = [0];
 
     /**
-     * @var array<int, int>
+     * @psalm-var array<int,int>
      */
     private array $testSuiteAssertions = [0];
 
     /**
-     * @var array<int, int>
+     * @psalm-var array<int,int>
      */
     private array $testSuiteErrors = [0];
 
     /**
-     * @var array<int, int>
+     * @psalm-var array<int,int>
      */
     private array $testSuiteFailures = [0];
 
     /**
-     * @var array<int, int>
+     * @psalm-var array<int,int>
      */
     private array $testSuiteSkipped = [0];
 
     /**
-     * @var array<int, float>
+     * @psalm-var array<int,int>
      */
-    private array $testSuiteTimes        = [0.0];
+    private array $testSuiteTimes        = [0];
     private int $testSuiteLevel          = 0;
     private ?DOMElement $currentTestCase = null;
     private ?HRTime $time                = null;
@@ -91,12 +91,9 @@ final class JunitXmlLogger
     private ?string $unexpectedOutput    = null;
 
     /**
-     * Wall-clock time of the failed attempts that preceded the final attempt
-     * of a retried test. This is added to the time of the final attempt so
-     * that the reported duration covers all attempts.
+     * @throws EventFacadeIsSealedException
+     * @throws UnknownSubscriberTypeException
      */
-    private float $retriedAttemptsTime = 0.0;
-
     public function __construct(Printer $printer, Facade $facade)
     {
         $this->printer = $printer;
@@ -107,11 +104,8 @@ final class JunitXmlLogger
 
     public function flush(): void
     {
-        $xml = $this->document->saveXML();
+        $this->printer->print($this->document->saveXML());
 
-        assert($xml !== false);
-
-        $this->printer->print($xml);
         $this->printer->flush();
     }
 
@@ -124,7 +118,7 @@ final class JunitXmlLogger
             $testSuite->setAttribute('file', $event->testSuite()->file());
         }
 
-        if ($this->testSuiteLevel > 0 && isset($this->testSuites[$this->testSuiteLevel])) {
+        if ($this->testSuiteLevel > 0) {
             $this->testSuites[$this->testSuiteLevel]->appendChild($testSuite);
         } else {
             $this->root->appendChild($testSuite);
@@ -137,30 +131,11 @@ final class JunitXmlLogger
         $this->testSuiteErrors[$this->testSuiteLevel]     = 0;
         $this->testSuiteFailures[$this->testSuiteLevel]   = 0;
         $this->testSuiteSkipped[$this->testSuiteLevel]    = 0;
-        $this->testSuiteTimes[$this->testSuiteLevel]      = 0.0;
-    }
-
-    public function testSuiteSkipped(TestSuiteSkipped $event): void
-    {
-        assert(isset($this->testSuiteSkipped[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteTests[$this->testSuiteLevel]));
-
-        $this->testSuiteSkipped[$this->testSuiteLevel] += $event->testSuite()->count();
-        $this->testSuiteTests[$this->testSuiteLevel]   += $event->testSuite()->count();
-
-        $this->testSuiteFinished();
+        $this->testSuiteTimes[$this->testSuiteLevel]      = 0;
     }
 
     public function testSuiteFinished(): void
     {
-        assert(isset($this->testSuites[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteTests[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteAssertions[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteErrors[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteFailures[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteSkipped[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteTimes[$this->testSuiteLevel]));
-
         $this->testSuites[$this->testSuiteLevel]->setAttribute(
             'tests',
             (string) $this->testSuiteTests[$this->testSuiteLevel],
@@ -192,21 +167,12 @@ final class JunitXmlLogger
         );
 
         if ($this->testSuiteLevel > 1) {
-            $previousLevel = $this->testSuiteLevel - 1;
-
-            assert(isset($this->testSuiteTests[$previousLevel]));
-            assert(isset($this->testSuiteAssertions[$previousLevel]));
-            assert(isset($this->testSuiteErrors[$previousLevel]));
-            assert(isset($this->testSuiteFailures[$previousLevel]));
-            assert(isset($this->testSuiteSkipped[$previousLevel]));
-            assert(isset($this->testSuiteTimes[$previousLevel]));
-
-            $this->testSuiteTests[$previousLevel]      += $this->testSuiteTests[$this->testSuiteLevel];
-            $this->testSuiteAssertions[$previousLevel] += $this->testSuiteAssertions[$this->testSuiteLevel];
-            $this->testSuiteErrors[$previousLevel]     += $this->testSuiteErrors[$this->testSuiteLevel];
-            $this->testSuiteFailures[$previousLevel]   += $this->testSuiteFailures[$this->testSuiteLevel];
-            $this->testSuiteSkipped[$previousLevel]    += $this->testSuiteSkipped[$this->testSuiteLevel];
-            $this->testSuiteTimes[$previousLevel]      += $this->testSuiteTimes[$this->testSuiteLevel];
+            $this->testSuiteTests[$this->testSuiteLevel - 1]      += $this->testSuiteTests[$this->testSuiteLevel];
+            $this->testSuiteAssertions[$this->testSuiteLevel - 1] += $this->testSuiteAssertions[$this->testSuiteLevel];
+            $this->testSuiteErrors[$this->testSuiteLevel - 1]     += $this->testSuiteErrors[$this->testSuiteLevel];
+            $this->testSuiteFailures[$this->testSuiteLevel - 1]   += $this->testSuiteFailures[$this->testSuiteLevel];
+            $this->testSuiteSkipped[$this->testSuiteLevel - 1]    += $this->testSuiteSkipped[$this->testSuiteLevel];
+            $this->testSuiteTimes[$this->testSuiteLevel - 1]      += $this->testSuiteTimes[$this->testSuiteLevel];
         }
 
         $this->testSuiteLevel--;
@@ -218,33 +184,22 @@ final class JunitXmlLogger
     public function testPreparationStarted(PreparationStarted $event): void
     {
         $this->createTestCase($event);
-
-        $this->preparationFailed = false;
     }
 
-    public function testPreparationErrored(): void
-    {
-        $this->preparationFailed = true;
-    }
-
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testPreparationFailed(): void
     {
         $this->preparationFailed = true;
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testPrepared(): void
     {
         $this->prepared = true;
-    }
-
-    public function testAttemptFailed(AttemptFailed $event): void
-    {
-        $this->retriedAttemptsTime += $event->duration()->asFloat();
-    }
-
-    public function testAttemptErrored(AttemptErrored $event): void
-    {
-        $this->retriedAttemptsTime += $event->duration()->asFloat();
     }
 
     public function testPrintedUnexpectedOutput(PrintedUnexpectedOutput $event): void
@@ -287,7 +242,6 @@ final class JunitXmlLogger
     {
         $this->handleFault($event, 'error');
 
-        assert(isset($this->testSuiteErrors[$this->testSuiteLevel]));
         $this->testSuiteErrors[$this->testSuiteLevel]++;
     }
 
@@ -298,7 +252,6 @@ final class JunitXmlLogger
     {
         $this->handleFault($event, 'failure');
 
-        assert(isset($this->testSuiteFailures[$this->testSuiteLevel]));
         $this->testSuiteFailures[$this->testSuiteLevel]++;
     }
 
@@ -309,12 +262,8 @@ final class JunitXmlLogger
     {
         assert($this->currentTestCase !== null);
         assert($this->time !== null);
-        assert(isset($this->testSuiteAssertions[$this->testSuiteLevel]));
-        assert(isset($this->testSuites[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteTests[$this->testSuiteLevel]));
-        assert(isset($this->testSuiteTimes[$this->testSuiteLevel]));
 
-        $time = $telemetryInfo->time()->duration($this->time)->asFloat() + $this->retriedAttemptsTime;
+        $time = $telemetryInfo->time()->duration($this->time)->asFloat();
 
         $this->testSuiteAssertions[$this->testSuiteLevel] += $numberOfAssertionsPerformed;
 
@@ -344,26 +293,24 @@ final class JunitXmlLogger
         $this->testSuiteTests[$this->testSuiteLevel]++;
         $this->testSuiteTimes[$this->testSuiteLevel] += $time;
 
-        $this->currentTestCase     = null;
-        $this->time                = null;
-        $this->preparationFailed   = false;
-        $this->prepared            = false;
-        $this->unexpectedOutput    = null;
-        $this->retriedAttemptsTime = 0.0;
+        $this->currentTestCase  = null;
+        $this->time             = null;
+        $this->prepared         = false;
+        $this->unexpectedOutput = null;
     }
 
+    /**
+     * @throws EventFacadeIsSealedException
+     * @throws UnknownSubscriberTypeException
+     */
     private function registerSubscribers(Facade $facade): void
     {
         $facade->registerSubscribers(
             new TestSuiteStartedSubscriber($this),
-            new TestSuiteSkippedSubscriber($this),
             new TestSuiteFinishedSubscriber($this),
             new TestPreparationStartedSubscriber($this),
-            new TestPreparationErroredSubscriber($this),
             new TestPreparationFailedSubscriber($this),
             new TestPreparedSubscriber($this),
-            new TestAttemptFailedSubscriber($this),
-            new TestAttemptErroredSubscriber($this),
             new TestPrintedUnexpectedOutputSubscriber($this),
             new TestFinishedSubscriber($this),
             new TestErroredSubscriber($this),
@@ -431,7 +378,6 @@ final class JunitXmlLogger
 
         $this->currentTestCase->appendChild($skipped);
 
-        assert(isset($this->testSuiteSkipped[$this->testSuiteLevel]));
         $this->testSuiteSkipped[$this->testSuiteLevel]++;
 
         if (!$this->prepared) {
@@ -469,13 +415,31 @@ final class JunitXmlLogger
 
         assert($test instanceof TestMethod);
 
-        return $test->name();
+        if (!$test->testData()->hasDataFromDataProvider()) {
+            return $test->methodName();
+        }
+
+        $dataSetName = $test->testData()->dataFromDataProvider()->dataSetName();
+
+        if (is_int($dataSetName)) {
+            return sprintf(
+                '%s with data set #%d',
+                $test->methodName(),
+                $dataSetName,
+            );
+        }
+
+        return sprintf(
+            '%s with data set "%s"',
+            $test->methodName(),
+            $dataSetName,
+        );
     }
 
     /**
      * @throws InvalidArgumentException
      *
-     * @phpstan-assert !null $this->currentTestCase
+     * @psalm-assert !null $this->currentTestCase
      */
     private function createTestCase(Errored|Failed|MarkedIncomplete|PreparationStarted|Prepared|Skipped $event): void
     {

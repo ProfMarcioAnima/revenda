@@ -19,7 +19,6 @@ use Iterator;
 use IteratorAggregate;
 use PHPUnit\Framework\Exception;
 use PHPUnit\Framework\GeneratorNotSupportedException;
-use SebastianBergmann\RecursionContext\Context;
 use Traversable;
 
 /**
@@ -38,17 +37,6 @@ class Count extends Constraint
     {
         return sprintf(
             'count matches %d',
-            $this->expectedCount,
-        );
-    }
-
-    /**
-     * Returns the negated string representation of the constraint.
-     */
-    protected function negatedToString(): string
-    {
-        return sprintf(
-            'count does not match %d',
             $this->expectedCount,
         );
     }
@@ -78,15 +66,7 @@ class Count extends Constraint
         }
 
         if ($other instanceof Traversable) {
-            $context = new Context;
-
             while ($other instanceof IteratorAggregate) {
-                if ($context->contains($other) !== false) {
-                    throw new Exception('IteratorAggregate::getIterator() returned an object that was already seen');
-                }
-
-                $context->add($other);
-
                 try {
                     $other = $other->getIterator();
                 } catch (\Exception $e) {
@@ -105,9 +85,7 @@ class Count extends Constraint
             }
 
             if (!$iterator instanceof Iterator) {
-                // @codeCoverageIgnoreStart
                 return iterator_count($iterator);
-                // @codeCoverageIgnoreEnd
             }
 
             $key   = $iterator->key();
@@ -141,18 +119,6 @@ class Count extends Constraint
     {
         return sprintf(
             'actual size %d matches expected size %d',
-            (int) $this->getCountOf($other),
-            $this->expectedCount,
-        );
-    }
-
-    /**
-     * @throws Exception
-     */
-    protected function negatedFailureDescription(mixed $other): string
-    {
-        return sprintf(
-            'actual size %d does not match expected size %d',
             (int) $this->getCountOf($other),
             $this->expectedCount,
         );

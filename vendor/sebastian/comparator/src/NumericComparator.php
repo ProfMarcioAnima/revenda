@@ -10,19 +10,14 @@
 namespace SebastianBergmann\Comparator;
 
 use function abs;
-use function assert;
 use function is_float;
 use function is_infinite;
 use function is_nan;
 use function is_numeric;
 use function is_string;
 use function sprintf;
+use SebastianBergmann\Exporter\Exporter;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for sebastian/comparator
- *
- * @internal This class is not covered by the backward compatibility promise for sebastian/comparator
- */
 final class NumericComparator extends ScalarComparator
 {
     public function accepts(mixed $expected, mixed $actual): bool
@@ -37,23 +32,14 @@ final class NumericComparator extends ScalarComparator
      */
     public function assertEquals(mixed $expected, mixed $actual, float $delta = 0.0, bool $canonicalize = false, bool $ignoreCase = false): void
     {
-        assert(is_numeric($expected));
-        assert(is_numeric($actual));
-
-        if ($this->isInfinite($expected) && $this->isInfinite($actual)) {
-            if ($expected < 0 && $actual < 0) {
-                return;
-            }
-
-            if ($expected > 0 && $actual > 0) {
-                return;
-            }
+        if ($this->isInfinite($actual) && $this->isInfinite($expected)) {
+            return;
         }
 
         if (($this->isInfinite($actual) xor $this->isInfinite($expected)) ||
             ($this->isNan($actual) || $this->isNan($expected)) ||
             abs($actual - $expected) > $delta) {
-            $exporter = $this->exporter();
+            $exporter = new Exporter;
 
             throw new ComparisonFailure(
                 $expected,
@@ -65,7 +51,6 @@ final class NumericComparator extends ScalarComparator
                     $exporter->export($actual),
                     $exporter->export($expected),
                 ),
-                $this->contextLines(),
             );
         }
     }

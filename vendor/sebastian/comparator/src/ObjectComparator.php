@@ -14,19 +14,8 @@ use function in_array;
 use function is_object;
 use function sprintf;
 use function substr_replace;
-use SebastianBergmann\Exporter\ObjectNotSupportedException;
+use SebastianBergmann\Exporter\Exporter;
 
-/**
- * When an object exporter provides the representation for the objects that
- * are compared then that representation is used for the comparison failure
- * message. This does not apply to objects for which a comparator of their own
- * exists: such a comparator is consulted before this one and the
- * representation it provides always has precedence.
- *
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for sebastian/comparator
- *
- * @internal This class is not covered by the backward compatibility promise for sebastian/comparator
- */
 class ObjectComparator extends ArrayComparator
 {
     public function accepts(mixed $expected, mixed $actual): bool
@@ -35,10 +24,7 @@ class ObjectComparator extends ArrayComparator
     }
 
     /**
-     * @param array<mixed> $processed
-     *
      * @throws ComparisonFailure
-     * @throws ObjectNotSupportedException
      */
     public function assertEquals(mixed $expected, mixed $actual, float $delta = 0.0, bool $canonicalize = false, bool $ignoreCase = false, array &$processed = []): void
     {
@@ -46,7 +32,7 @@ class ObjectComparator extends ArrayComparator
         assert(is_object($actual));
 
         if ($actual::class !== $expected::class) {
-            $exporter = $this->exporter();
+            $exporter = new Exporter;
 
             throw new ComparisonFailure(
                 $expected,
@@ -58,7 +44,6 @@ class ObjectComparator extends ArrayComparator
                     $exporter->export($actual),
                     $expected::class,
                 ),
-                $this->contextLines(),
             );
         }
 
@@ -84,24 +69,6 @@ class ObjectComparator extends ArrayComparator
                     $processed,
                 );
             } catch (ComparisonFailure $e) {
-                $exporter = $this->exporter();
-
-                // An object exporter is responsible for the entire
-                // representation of the object it handles. Its representation
-                // is therefore used instead of the property-by-property
-                // representation that is built above.
-                if ($exporter->hasCustomRepresentationFor($expected) ||
-                    $exporter->hasCustomRepresentationFor($actual)) {
-                    throw new ComparisonFailure(
-                        $expected,
-                        $actual,
-                        $exporter->export($expected),
-                        $exporter->export($actual),
-                        'Failed asserting that two objects are equal.',
-                        $this->contextLines(),
-                    );
-                }
-
                 throw new ComparisonFailure(
                     $expected,
                     $actual,
@@ -109,17 +76,13 @@ class ObjectComparator extends ArrayComparator
                     substr_replace($e->getExpectedAsString(), $expected::class . ' Object', 0, 5),
                     substr_replace($e->getActualAsString(), $actual::class . ' Object', 0, 5),
                     'Failed asserting that two objects are equal.',
-                    $this->contextLines(),
                 );
             }
         }
     }
 
-    /**
-     * @return array<mixed>
-     */
     protected function toArray(object $object): array
     {
-        return $this->exporter()->toArray($object);
+        return (new Exporter)->toArray($object);
     }
 }

@@ -18,7 +18,7 @@ use DOMElement;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class MoveAttributesFromRootToCoverage implements Migration
+final class MoveAttributesFromRootToCoverage implements Migration
 {
     /**
      * @throws MigrationException
@@ -36,11 +36,9 @@ final readonly class MoveAttributesFromRootToCoverage implements Migration
 
         $coverage = $document->getElementsByTagName('coverage')->item(0);
 
-        // @codeCoverageIgnoreStart
         if (!$coverage instanceof DOMElement) {
             throw new MigrationException('Unexpected state - No coverage element');
         }
-        // @codeCoverageIgnoreEnd
 
         foreach ($map as $old => $new) {
             if (!$root->hasAttribute($old)) {

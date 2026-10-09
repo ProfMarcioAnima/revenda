@@ -30,14 +30,6 @@ final class IsEmpty extends Constraint
     }
 
     /**
-     * Returns the negated string representation of the constraint.
-     */
-    protected function negatedToString(): string
-    {
-        return 'is not empty';
-    }
-
-    /**
      * Evaluates the constraint for parameter $other. Returns true if the
      * constraint is met, false otherwise.
      */
@@ -51,7 +43,6 @@ final class IsEmpty extends Constraint
             return count($other) === 0;
         }
 
-        /** @phpstan-ignore empty.notAllowed */
         return empty($other);
     }
 
@@ -63,23 +54,13 @@ final class IsEmpty extends Constraint
      */
     protected function failureDescription(mixed $other): string
     {
-        return $this->describe($other, $this->toString());
-    }
-
-    protected function negatedFailureDescription(mixed $other): string
-    {
-        return $this->describe($other, $this->negatedToString());
-    }
-
-    private function describe(mixed $other, string $description): string
-    {
         $type = gettype($other);
 
         return sprintf(
             '%s %s %s',
             str_starts_with($type, 'a') || str_starts_with($type, 'o') ? 'an' : 'a',
             $type,
-            $description,
+            $this->toString(true),
         );
     }
 }
