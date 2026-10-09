@@ -9,13 +9,11 @@
  */
 namespace SebastianBergmann\Type;
 
-use function is_a;
+use function assert;
+use function class_exists;
 use function is_iterable;
-use Traversable;
+use ReflectionClass;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for this library
- */
 final class IterableType extends Type
 {
     private bool $allowsNull;
@@ -25,6 +23,9 @@ final class IterableType extends Type
         $this->allowsNull = $nullable;
     }
 
+    /**
+     * @throws RuntimeException
+     */
     public function isAssignable(Type $other): bool
     {
         if ($this->allowsNull && $other instanceof NullType) {
@@ -40,15 +41,16 @@ final class IterableType extends Type
         }
 
         if ($other instanceof ObjectType) {
-            return is_a($other->className()->qualifiedName(), Traversable::class, true);
+            $className = $other->className()->qualifiedName();
+
+            assert(class_exists($className));
+
+            return (new ReflectionClass($className))->isIterable();
         }
 
         return false;
     }
 
-    /**
-     * @return 'iterable'
-     */
     public function name(): string
     {
         return 'iterable';
@@ -59,6 +61,9 @@ final class IterableType extends Type
         return $this->allowsNull;
     }
 
+    /**
+     * @psalm-assert-if-true IterableType $this
+     */
     public function isIterable(): bool
     {
         return true;

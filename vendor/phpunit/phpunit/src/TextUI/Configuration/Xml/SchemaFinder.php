@@ -12,7 +12,6 @@ namespace PHPUnit\TextUI\XmlConfiguration;
 use function assert;
 use function defined;
 use function is_file;
-use function is_string;
 use function rsort;
 use function sprintf;
 use DirectoryIterator;
@@ -23,10 +22,10 @@ use PHPUnit\Runner\Version;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class SchemaFinder
+final class SchemaFinder
 {
     /**
-     * @return non-empty-list<non-empty-string>
+     * @psalm-return non-empty-list<non-empty-string>
      */
     public function available(): array
     {
@@ -39,7 +38,7 @@ final readonly class SchemaFinder
 
             $version = $file->getBasename('.xsd');
 
-            assert($version !== '');
+            assert(!empty($version));
 
             $result[] = $version;
         }
@@ -74,7 +73,7 @@ final readonly class SchemaFinder
 
     private function path(): string
     {
-        if (defined('__PHPUNIT_PHAR_ROOT__') && is_string(__PHPUNIT_PHAR_ROOT__)) {
+        if (defined('__PHPUNIT_PHAR_ROOT__')) {
             return __PHPUNIT_PHAR_ROOT__ . '/';
         }
 

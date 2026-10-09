@@ -13,17 +13,14 @@ use function sprintf;
 use PHPUnit\Event\InvalidArgumentException;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class HRTime
+final class HRTime
 {
-    /** @var non-negative-int */
-    private int $seconds;
-
-    /** @var non-negative-int */
-    private int $nanoseconds;
+    private readonly int $seconds;
+    private readonly int $nanoseconds;
 
     /**
      * @throws InvalidArgumentException
@@ -81,8 +78,6 @@ final readonly class HRTime
     }
 
     /**
-     * @phpstan-assert non-negative-int $value
-     *
      * @throws InvalidArgumentException
      */
     private function ensureNotNegative(int $value, string $type): void

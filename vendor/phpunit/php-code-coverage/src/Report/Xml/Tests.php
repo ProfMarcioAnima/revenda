@@ -9,26 +9,20 @@
  */
 namespace SebastianBergmann\CodeCoverage\Report\Xml;
 
-use function sprintf;
-use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Util\EnsuresUtf8;
-use XMLWriter;
+use DOMElement;
 
 /**
  * @internal This class is not covered by the backward compatibility promise for phpunit/php-code-coverage
  *
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for phpunit/php-code-coverage
- *
- * @phpstan-import-type TestType from CodeCoverage
+ * @psalm-import-type TestType from \SebastianBergmann\CodeCoverage\CodeCoverage
  */
-final readonly class Tests
+final class Tests
 {
-    use EnsuresUtf8;
-    private XMLWriter $xmlWriter;
+    private readonly DOMElement $contextNode;
 
-    public function __construct(XMLWriter $xmlWriter)
+    public function __construct(DOMElement $context)
     {
-        $this->xmlWriter = $xmlWriter;
+        $this->contextNode = $context;
     }
 
     /**
@@ -36,13 +30,15 @@ final readonly class Tests
      */
     public function addTest(string $test, array $result): void
     {
-        $this->xmlWriter->startElement('test');
+        $node = $this->contextNode->appendChild(
+            $this->contextNode->ownerDocument->createElementNS(
+                'https://schema.phpunit.de/coverage/1.0',
+                'test',
+            ),
+        );
 
-        $this->xmlWriter->writeAttribute('name', $this->ensureUtf8($test));
-        $this->xmlWriter->writeAttribute('size', $result['size']);
-        $this->xmlWriter->writeAttribute('status', $result['status']);
-        $this->xmlWriter->writeAttribute('time', sprintf('%F', $result['time']));
-
-        $this->xmlWriter->endElement();
+        $node->setAttribute('name', $test);
+        $node->setAttribute('size', $result['size']);
+        $node->setAttribute('status', $result['status']);
     }
 }

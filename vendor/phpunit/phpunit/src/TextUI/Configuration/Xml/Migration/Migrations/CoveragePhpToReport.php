@@ -9,7 +9,6 @@
  */
 namespace PHPUnit\TextUI\XmlConfiguration;
 
-use function assert;
 use DOMElement;
 
 /**
@@ -17,7 +16,7 @@ use DOMElement;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class CoveragePhpToReport extends LogToReportMigration
+final class CoveragePhpToReport extends LogToReportMigration
 {
     protected function forType(): string
     {
@@ -26,11 +25,7 @@ final readonly class CoveragePhpToReport extends LogToReportMigration
 
     protected function toReportFormat(DOMElement $logNode): DOMElement
     {
-        $ownerDocument = $logNode->ownerDocument;
-
-        assert($ownerDocument !== null);
-
-        $php = $ownerDocument->createElement('php');
+        $php = $logNode->ownerDocument->createElement('php');
         $php->setAttribute('outputFile', $logNode->getAttribute('target'));
 
         return $php;

@@ -9,36 +9,44 @@
  */
 namespace SebastianBergmann\FileIterator;
 
-use function array_any;
+use function assert;
+use function preg_match;
+use function realpath;
 use function str_ends_with;
+use function str_replace;
 use function str_starts_with;
+use AppendIterator;
 use FilterIterator;
 use SplFileInfo;
 
 /**
- * @template-extends FilterIterator<int, SplFileInfo, \Iterator>
+ * @template-extends FilterIterator<int, string, AppendIterator>
  *
  * @internal This class is not covered by the backward compatibility promise for phpunit/php-file-iterator
  */
 final class Iterator extends FilterIterator
 {
+    public const PREFIX = 0;
+    public const SUFFIX = 1;
+    private string|false $basePath;
+
     /**
-     * @var list<string>
+     * @psalm-var list<string>
      */
     private array $suffixes;
 
     /**
-     * @var list<string>
+     * @psalm-var list<string>
      */
     private array $prefixes;
 
     /**
-     * @param \Iterator<int, SplFileInfo> $iterator
-     * @param list<string>                $suffixes
-     * @param list<string>                $prefixes
+     * @psalm-param list<string> $suffixes
+     * @psalm-param list<string> $prefixes
      */
-    public function __construct(\Iterator $iterator, array $suffixes = [], array $prefixes = [])
+    public function __construct(string $basePath, \Iterator $iterator, array $suffixes = [], array $prefixes = [])
     {
+        $this->basePath = realpath($basePath);
         $this->prefixes = $prefixes;
         $this->suffixes = $suffixes;
 
@@ -47,18 +55,60 @@ final class Iterator extends FilterIterator
 
     public function accept(): bool
     {
-        $filename = $this->getInnerIterator()->current()->getFilename();
+        $current = $this->getInnerIterator()->current();
 
-        if ($this->prefixes !== [] &&
-            !array_any($this->prefixes, static fn (string $prefix) => str_starts_with($filename, $prefix))) {
+        assert($current instanceof SplFileInfo);
+
+        $filename = $current->getFilename();
+        $realPath = $current->getRealPath();
+
+        if ($realPath === false) {
+            // @codeCoverageIgnoreStart
             return false;
+            // @codeCoverageIgnoreEnd
         }
 
-        if ($this->suffixes !== [] &&
-            !array_any($this->suffixes, static fn (string $suffix) => str_ends_with($filename, $suffix))) {
+        return $this->acceptPath($realPath) &&
+               $this->acceptPrefix($filename) &&
+               $this->acceptSuffix($filename);
+    }
+
+    private function acceptPath(string $path): bool
+    {
+        // Filter files in hidden directories by checking path that is relative to the base path.
+        if (preg_match('=/\.[^/]*/=', str_replace((string) $this->basePath, '', $path))) {
             return false;
         }
 
         return true;
+    }
+
+    private function acceptPrefix(string $filename): bool
+    {
+        return $this->acceptSubString($filename, $this->prefixes, self::PREFIX);
+    }
+
+    private function acceptSuffix(string $filename): bool
+    {
+        return $this->acceptSubString($filename, $this->suffixes, self::SUFFIX);
+    }
+
+    /**
+     * @psalm-param list<string> $subStrings
+     */
+    private function acceptSubString(string $filename, array $subStrings, int $type): bool
+    {
+        if (empty($subStrings)) {
+            return true;
+        }
+
+        foreach ($subStrings as $string) {
+            if (($type === self::PREFIX && str_starts_with($filename, $string)) ||
+                ($type === self::SUFFIX && str_ends_with($filename, $string))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

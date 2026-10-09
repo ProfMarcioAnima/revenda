@@ -12,22 +12,23 @@ namespace PHPUnit\Metadata;
 use PHPUnit\Metadata\Version\Requirement;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class RequiresPhpExtension extends Metadata
+final class RequiresPhpExtension extends Metadata
 {
     /**
-     * @var non-empty-string
+     * @psalm-var non-empty-string
      */
-    private string $extension;
-    private ?Requirement $versionRequirement;
+    private readonly string $extension;
+    private readonly ?Requirement $versionRequirement;
 
     /**
-     * @param non-empty-string $extension
+     * @psalm-param 0|1 $level
+     * @psalm-param non-empty-string $extension
      */
-    protected function __construct(Level $level, string $extension, ?Requirement $versionRequirement)
+    protected function __construct(int $level, string $extension, ?Requirement $versionRequirement)
     {
         parent::__construct($level);
 
@@ -35,13 +36,16 @@ final readonly class RequiresPhpExtension extends Metadata
         $this->versionRequirement = $versionRequirement;
     }
 
-    public function isRequiresPhpExtension(): true
+    /**
+     * @psalm-assert-if-true RequiresPhpExtension $this
+     */
+    public function isRequiresPhpExtension(): bool
     {
         return true;
     }
 
     /**
-     * @return non-empty-string
+     * @psalm-return non-empty-string
      */
     public function extension(): string
     {
@@ -49,7 +53,7 @@ final readonly class RequiresPhpExtension extends Metadata
     }
 
     /**
-     * @phpstan-assert-if-true !null $this->versionRequirement
+     * @psalm-assert-if-true !null $this->versionRequirement
      */
     public function hasVersionRequirement(): bool
     {
