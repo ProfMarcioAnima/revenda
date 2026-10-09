@@ -18,7 +18,7 @@ class Veiculo
         $this->conn = $db;
     }
 
-    public function listar_Publico()
+    public function listarPublico()
     {
         $stmt = $this->conn->prepare("SELECT * FROM veiculos WHERE visivel = 1");
         $stmt->execute();
