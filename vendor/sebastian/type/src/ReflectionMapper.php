@@ -9,165 +9,168 @@
  */
 namespace SebastianBergmann\Type;
 
-use function array_filter;
 use function assert;
 use ReflectionFunction;
 use ReflectionIntersectionType;
 use ReflectionMethod;
 use ReflectionNamedType;
-use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for this library
- */
 final class ReflectionMapper
 {
     /**
-     * @return list<Parameter>
+     * @psalm-return list<Parameter>
      */
-    public function fromParameterTypes(ReflectionFunction|ReflectionMethod $reflector): array
+    public function fromParameterTypes(ReflectionFunction|ReflectionMethod $functionOrMethod): array
     {
         $parameters = [];
 
-        foreach ($reflector->getParameters() as $parameter) {
+        foreach ($functionOrMethod->getParameters() as $parameter) {
+            $name = $parameter->getName();
+
+            assert($name !== '');
+
+            if (!$parameter->hasType()) {
+                $parameters[] = new Parameter($name, new UnknownType);
+
+                continue;
+            }
+
             $type = $parameter->getType();
 
-            $parameters[] = new Parameter(
-                $parameter->getName(),
-                $type === null ? new UnknownType : $this->mapType($type, $reflector),
-            );
+            if ($type instanceof ReflectionNamedType) {
+                $parameters[] = new Parameter(
+                    $name,
+                    $this->mapNamedType($type, $functionOrMethod)
+                );
+
+                continue;
+            }
+
+            if ($type instanceof ReflectionUnionType) {
+                $parameters[] = new Parameter(
+                    $name,
+                    $this->mapUnionType($type, $functionOrMethod)
+                );
+
+                continue;
+            }
+
+            if ($type instanceof ReflectionIntersectionType) {
+                $parameters[] = new Parameter(
+                    $name,
+                    $this->mapIntersectionType($type, $functionOrMethod)
+                );
+            }
         }
 
         return $parameters;
     }
 
-    public function fromReturnType(ReflectionFunction|ReflectionMethod $reflector): Type
+    public function fromReturnType(ReflectionFunction|ReflectionMethod $functionOrMethod): Type
     {
-        $returnType = $reflector->getReturnType() ?? $reflector->getTentativeReturnType();
-
-        if ($returnType === null) {
+        if (!$this->hasReturnType($functionOrMethod)) {
             return new UnknownType;
         }
 
-        return $this->mapType($returnType, $reflector);
-    }
+        $returnType = $this->returnType($functionOrMethod);
 
-    public function fromPropertyType(ReflectionProperty $reflector): Type
-    {
-        $propertyType = $reflector->getType();
+        assert($returnType instanceof ReflectionNamedType || $returnType instanceof ReflectionUnionType || $returnType instanceof ReflectionIntersectionType);
 
-        if ($propertyType === null) {
-            return new UnknownType;
+        if ($returnType instanceof ReflectionNamedType) {
+            return $this->mapNamedType($returnType, $functionOrMethod);
         }
 
-        return $this->mapType($propertyType, $reflector);
-    }
-
-    private function mapType(ReflectionType $type, ReflectionFunction|ReflectionMethod|ReflectionProperty $reflector): Type
-    {
-        if ($type instanceof ReflectionNamedType) {
-            return $this->mapNamedType($type, $reflector);
+        if ($returnType instanceof ReflectionUnionType) {
+            return $this->mapUnionType($returnType, $functionOrMethod);
         }
 
-        if ($type instanceof ReflectionUnionType) {
-            return $this->mapUnionType($type, $reflector);
+        if ($returnType instanceof ReflectionIntersectionType) {
+            return $this->mapIntersectionType($returnType, $functionOrMethod);
         }
-
-        assert($type instanceof ReflectionIntersectionType);
-
-        return $this->mapIntersectionType($type, $reflector);
     }
 
-    private function mapNamedType(ReflectionNamedType $type, ReflectionFunction|ReflectionMethod|ReflectionProperty $reflector): Type
+    private function mapNamedType(ReflectionNamedType $type, ReflectionFunction|ReflectionMethod $functionOrMethod): Type
     {
-        $classScope = !$reflector instanceof ReflectionFunction;
-        $typeName   = $type->getName();
+        if ($functionOrMethod instanceof ReflectionMethod && $type->getName() === 'self') {
+            return ObjectType::fromName(
+                $functionOrMethod->getDeclaringClass()->getName(),
+                $type->allowsNull()
+            );
+        }
 
-        assert($typeName !== '');
+        if ($functionOrMethod instanceof ReflectionMethod && $type->getName() === 'static') {
+            return new StaticType(
+                TypeName::fromReflection($functionOrMethod->getDeclaringClass()),
+                $type->allowsNull()
+            );
+        }
 
-        if ($typeName === 'mixed') {
+        if ($type->getName() === 'mixed') {
             return new MixedType;
         }
 
-        if ($classScope) {
-            if ($typeName === 'self') {
-                return new ObjectType(
-                    TypeName::fromReflection($reflector->getDeclaringClass()),
-                    $type->allowsNull(),
-                );
-            }
-
-            if ($typeName === 'static') {
-                return new StaticType(
-                    TypeName::fromReflection($reflector->getDeclaringClass()),
-                    $type->allowsNull(),
-                );
-            }
-
-            if ($typeName === 'parent') {
-                $parentClass = $reflector->getDeclaringClass()->getParentClass();
-
-                assert($parentClass !== false);
-
-                return new ObjectType(
-                    TypeName::fromReflection($parentClass),
-                    $type->allowsNull(),
-                );
-            }
+        if ($functionOrMethod instanceof ReflectionMethod && $type->getName() === 'parent') {
+            return ObjectType::fromName(
+                $functionOrMethod->getDeclaringClass()->getParentClass()->getName(),
+                $type->allowsNull()
+            );
         }
 
         return Type::fromName(
-            $typeName,
-            $type->allowsNull(),
+            $type->getName(),
+            $type->allowsNull()
         );
     }
 
-    private function mapUnionType(ReflectionUnionType $type, ReflectionFunction|ReflectionMethod|ReflectionProperty $reflector): Type
+    private function mapUnionType(ReflectionUnionType $type, ReflectionFunction|ReflectionMethod $functionOrMethod): Type
     {
-        $types             = [];
-        $objectType        = false;
-        $genericObjectType = false;
+        $types = [];
 
         foreach ($type->getTypes() as $_type) {
+            assert($_type instanceof ReflectionNamedType || $_type instanceof ReflectionIntersectionType);
+
             if ($_type instanceof ReflectionNamedType) {
-                $namedType = $this->mapNamedType($_type, $reflector);
-
-                if ($namedType instanceof GenericObjectType) {
-                    $genericObjectType = true;
-                } elseif ($namedType instanceof ObjectType) {
-                    $objectType = true;
-                }
-
-                $types[] = $namedType;
+                $types[] = $this->mapNamedType($_type, $functionOrMethod);
 
                 continue;
             }
 
-            $types[] = $this->mapIntersectionType($_type, $reflector);
-        }
-
-        if ($objectType && $genericObjectType) {
-            $types = array_filter(
-                $types,
-                static fn (Type $type): bool => !$type instanceof ObjectType,
-            );
+            $types[] = $this->mapIntersectionType($_type, $functionOrMethod);
         }
 
         return new UnionType(...$types);
     }
 
-    private function mapIntersectionType(ReflectionIntersectionType $type, ReflectionFunction|ReflectionMethod|ReflectionProperty $reflector): Type
+    private function mapIntersectionType(ReflectionIntersectionType $type, ReflectionFunction|ReflectionMethod $functionOrMethod): Type
     {
         $types = [];
 
         foreach ($type->getTypes() as $_type) {
             assert($_type instanceof ReflectionNamedType);
 
-            $types[] = $this->mapNamedType($_type, $reflector);
+            $types[] = $this->mapNamedType($_type, $functionOrMethod);
         }
 
         return new IntersectionType(...$types);
+    }
+
+    private function hasReturnType(ReflectionFunction|ReflectionMethod $functionOrMethod): bool
+    {
+        if ($functionOrMethod->hasReturnType()) {
+            return true;
+        }
+
+        return $functionOrMethod->hasTentativeReturnType();
+    }
+
+    private function returnType(ReflectionFunction|ReflectionMethod $functionOrMethod): ?ReflectionType
+    {
+        if ($functionOrMethod->hasReturnType()) {
+            return $functionOrMethod->getReturnType();
+        }
+
+        return $functionOrMethod->getTentativeReturnType();
     }
 }

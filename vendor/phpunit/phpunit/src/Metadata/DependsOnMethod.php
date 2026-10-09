@@ -10,29 +10,30 @@
 namespace PHPUnit\Metadata;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class DependsOnMethod extends Metadata
+final class DependsOnMethod extends Metadata
 {
     /**
-     * @var class-string
+     * @psalm-var class-string
      */
-    private string $className;
+    private readonly string $className;
 
     /**
-     * @var non-empty-string
+     * @psalm-var non-empty-string
      */
-    private string $methodName;
-    private bool $deepClone;
-    private bool $shallowClone;
+    private readonly string $methodName;
+    private readonly bool $deepClone;
+    private readonly bool $shallowClone;
 
     /**
-     * @param class-string     $className
-     * @param non-empty-string $methodName
+     * @psalm-param 0|1 $level
+     * @psalm-param class-string $className
+     * @psalm-param non-empty-string $methodName
      */
-    protected function __construct(Level $level, string $className, string $methodName, bool $deepClone, bool $shallowClone)
+    protected function __construct(int $level, string $className, string $methodName, bool $deepClone, bool $shallowClone)
     {
         parent::__construct($level);
 
@@ -42,13 +43,16 @@ final readonly class DependsOnMethod extends Metadata
         $this->shallowClone = $shallowClone;
     }
 
-    public function isDependsOnMethod(): true
+    /**
+     * @psalm-assert-if-true DependsOnMethod $this
+     */
+    public function isDependsOnMethod(): bool
     {
         return true;
     }
 
     /**
-     * @return class-string
+     * @psalm-return class-string
      */
     public function className(): string
     {
@@ -56,7 +60,7 @@ final readonly class DependsOnMethod extends Metadata
     }
 
     /**
-     * @return non-empty-string
+     * @psalm-return non-empty-string
      */
     public function methodName(): string
     {

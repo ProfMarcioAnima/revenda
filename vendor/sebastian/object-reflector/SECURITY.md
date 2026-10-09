@@ -1,10 +1,9 @@
 # Security Policy
 
-The library that is developed in this repository is a first-party dependency of [PHPUnit](https://github.com/sebastianbergmann/phpunit).
-[PHPUnit's Security Policy](https://github.com/sebastianbergmann/phpunit/security/policy) applies to this library as well.
+This library is intended to be used in development environments only. For instance, it is used by the testing framework PHPUnit. There is no reason why this library should be installed on a webserver.
 
-If you believe you have found a security vulnerability in this library, please report it to me through coordinated disclosure.
+**If you upload this library to a webserver then your deployment process is broken. On a more general note, if your `vendor` directory is publicly accessible on your webserver then your deployment process is also broken.**
 
-Use my [PGP key](https://sebastian-bergmann.de/gpg.asc) for encrypted email, for example when your report includes proof-of-concept exploits against third-party systems.
+## Security Contact Information
 
-**Please do not report security vulnerabilities through public GitHub issues, discussions, or pull requests.**
+After the above, if you still would like to report a security vulnerability, please email `sebastian@phpunit.de`.

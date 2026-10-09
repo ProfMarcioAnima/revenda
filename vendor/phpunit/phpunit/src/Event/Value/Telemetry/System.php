@@ -14,37 +14,26 @@ namespace PHPUnit\Event\Telemetry;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class System
+final class System
 {
-    private StopWatch $stopWatch;
-    private MemoryMeter $memoryMeter;
-    private GarbageCollectorStatusProvider $garbageCollectorStatusProvider;
-    private CpuTimeMeter $cpuTimeMeter;
+    private readonly StopWatch $stopWatch;
+    private readonly MemoryMeter $memoryMeter;
+    private readonly GarbageCollectorStatusProvider $garbageCollectorStatusProvider;
 
-    /**
-     * @internal This method is not covered by the backward compatibility promise for PHPUnit
-     */
-    public function __construct(StopWatch $stopWatch, MemoryMeter $memoryMeter, GarbageCollectorStatusProvider $garbageCollectorStatusProvider, CpuTimeMeter $cpuTimeMeter)
+    public function __construct(StopWatch $stopWatch, MemoryMeter $memoryMeter, GarbageCollectorStatusProvider $garbageCollectorStatusProvider)
     {
         $this->stopWatch                      = $stopWatch;
         $this->memoryMeter                    = $memoryMeter;
         $this->garbageCollectorStatusProvider = $garbageCollectorStatusProvider;
-        $this->cpuTimeMeter                   = $cpuTimeMeter;
     }
 
     public function snapshot(): Snapshot
     {
-        $userCpuTime   = $this->cpuTimeMeter->userCpuTime();
-        $systemCpuTime = $this->cpuTimeMeter->systemCpuTime();
-
         return new Snapshot(
             $this->stopWatch->current(),
             $this->memoryMeter->memoryUsage(),
             $this->memoryMeter->peakMemoryUsage(),
             $this->garbageCollectorStatusProvider->status(),
-            $userCpuTime,
-            $systemCpuTime,
-            $userCpuTime->add($systemCpuTime),
         );
     }
 }

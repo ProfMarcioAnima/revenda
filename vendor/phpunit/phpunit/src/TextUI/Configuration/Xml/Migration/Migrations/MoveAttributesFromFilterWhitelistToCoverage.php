@@ -17,7 +17,7 @@ use DOMElement;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class MoveAttributesFromFilterWhitelistToCoverage implements Migration
+final class MoveAttributesFromFilterWhitelistToCoverage implements Migration
 {
     /**
      * @throws MigrationException
@@ -26,17 +26,15 @@ final readonly class MoveAttributesFromFilterWhitelistToCoverage implements Migr
     {
         $whitelist = $document->getElementsByTagName('whitelist')->item(0);
 
-        if ($whitelist === null) {
+        if (!$whitelist) {
             return;
         }
 
         $coverage = $document->getElementsByTagName('coverage')->item(0);
 
-        // @codeCoverageIgnoreStart
         if (!$coverage instanceof DOMElement) {
             throw new MigrationException('Unexpected state - No coverage element');
         }
-        // @codeCoverageIgnoreEnd
 
         $map = [
             'addUncoveredFilesFromWhitelist'     => 'includeUncoveredFiles',

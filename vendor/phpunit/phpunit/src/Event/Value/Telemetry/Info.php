@@ -12,40 +12,25 @@ namespace PHPUnit\Event\Telemetry;
 use function sprintf;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class Info
+final class Info
 {
-    private Snapshot $current;
-    private Duration $durationSinceStart;
-    private MemoryUsage $memorySinceStart;
-    private Duration $durationSincePrevious;
-    private MemoryUsage $memorySincePrevious;
-    private CpuTime $userCpuTimeSinceStart;
-    private CpuTime $systemCpuTimeSinceStart;
-    private CpuTime $totalCpuTimeSinceStart;
-    private CpuTime $userCpuTimeSincePrevious;
-    private CpuTime $systemCpuTimeSincePrevious;
-    private CpuTime $totalCpuTimeSincePrevious;
+    private readonly Snapshot $current;
+    private readonly Duration $durationSinceStart;
+    private readonly MemoryUsage $memorySinceStart;
+    private readonly Duration $durationSincePrevious;
+    private readonly MemoryUsage $memorySincePrevious;
 
-    /**
-     * @internal This method is not covered by the backward compatibility promise for PHPUnit
-     */
-    public function __construct(Snapshot $current, Duration $durationSinceStart, MemoryUsage $memorySinceStart, Duration $durationSincePrevious, MemoryUsage $memorySincePrevious, CpuTime $userCpuTimeSinceStart, CpuTime $systemCpuTimeSinceStart, CpuTime $totalCpuTimeSinceStart, CpuTime $userCpuTimeSincePrevious, CpuTime $systemCpuTimeSincePrevious, CpuTime $totalCpuTimeSincePrevious)
+    public function __construct(Snapshot $current, Duration $durationSinceStart, MemoryUsage $memorySinceStart, Duration $durationSincePrevious, MemoryUsage $memorySincePrevious)
     {
-        $this->current                    = $current;
-        $this->durationSinceStart         = $durationSinceStart;
-        $this->memorySinceStart           = $memorySinceStart;
-        $this->durationSincePrevious      = $durationSincePrevious;
-        $this->memorySincePrevious        = $memorySincePrevious;
-        $this->userCpuTimeSinceStart      = $userCpuTimeSinceStart;
-        $this->systemCpuTimeSinceStart    = $systemCpuTimeSinceStart;
-        $this->totalCpuTimeSinceStart     = $totalCpuTimeSinceStart;
-        $this->userCpuTimeSincePrevious   = $userCpuTimeSincePrevious;
-        $this->systemCpuTimeSincePrevious = $systemCpuTimeSincePrevious;
-        $this->totalCpuTimeSincePrevious  = $totalCpuTimeSincePrevious;
+        $this->current               = $current;
+        $this->durationSinceStart    = $durationSinceStart;
+        $this->memorySinceStart      = $memorySinceStart;
+        $this->durationSincePrevious = $durationSincePrevious;
+        $this->memorySincePrevious   = $memorySincePrevious;
     }
 
     public function time(): HRTime
@@ -88,58 +73,13 @@ final readonly class Info
         return $this->current->garbageCollectorStatus();
     }
 
-    public function userCpuTime(): CpuTime
-    {
-        return $this->current->userCpuTime();
-    }
-
-    public function systemCpuTime(): CpuTime
-    {
-        return $this->current->systemCpuTime();
-    }
-
-    public function totalCpuTime(): CpuTime
-    {
-        return $this->current->totalCpuTime();
-    }
-
-    public function userCpuTimeSinceStart(): CpuTime
-    {
-        return $this->userCpuTimeSinceStart;
-    }
-
-    public function systemCpuTimeSinceStart(): CpuTime
-    {
-        return $this->systemCpuTimeSinceStart;
-    }
-
-    public function totalCpuTimeSinceStart(): CpuTime
-    {
-        return $this->totalCpuTimeSinceStart;
-    }
-
-    public function userCpuTimeSincePrevious(): CpuTime
-    {
-        return $this->userCpuTimeSincePrevious;
-    }
-
-    public function systemCpuTimeSincePrevious(): CpuTime
-    {
-        return $this->systemCpuTimeSincePrevious;
-    }
-
-    public function totalCpuTimeSincePrevious(): CpuTime
-    {
-        return $this->totalCpuTimeSincePrevious;
-    }
-
     public function asString(): string
     {
         return sprintf(
             '[%s / %s] [%d bytes]',
             $this->durationSinceStart()->asString(),
             $this->durationSincePrevious()->asString(),
-            $this->peakMemoryUsage()->bytes(),
+            $this->memoryUsage()->bytes(),
         );
     }
 }

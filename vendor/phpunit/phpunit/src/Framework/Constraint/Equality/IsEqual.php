@@ -16,6 +16,7 @@ use function trim;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Util\Exporter;
 use SebastianBergmann\Comparator\ComparisonFailure;
+use SebastianBergmann\Comparator\Factory as ComparatorFactory;
 
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
@@ -23,10 +24,16 @@ use SebastianBergmann\Comparator\ComparisonFailure;
 final class IsEqual extends Constraint
 {
     private readonly mixed $value;
+    private readonly float $delta;
+    private readonly bool $canonicalize;
+    private readonly bool $ignoreCase;
 
-    public function __construct(mixed $value)
+    public function __construct(mixed $value, float $delta = 0.0, bool $canonicalize = false, bool $ignoreCase = false)
     {
-        $this->value = $value;
+        $this->value        = $value;
+        $this->delta        = $delta;
+        $this->canonicalize = $canonicalize;
+        $this->ignoreCase   = $ignoreCase;
     }
 
     /**
@@ -41,7 +48,7 @@ final class IsEqual extends Constraint
      *
      * @throws ExpectationFailedException
      */
-    public function evaluate(mixed $other, string $description = '', bool $returnResult = false): bool
+    public function evaluate(mixed $other, string $description = '', bool $returnResult = false): ?bool
     {
         // If $this->value and $other are identical, they are also equal.
         // This is the most common path and will allow us to skip
@@ -50,8 +57,21 @@ final class IsEqual extends Constraint
             return true;
         }
 
+        $comparatorFactory = ComparatorFactory::getInstance();
+
         try {
-            $this->assertEqualsUsingComparator($this->value, $other);
+            $comparator = $comparatorFactory->getComparatorFor(
+                $this->value,
+                $other,
+            );
+
+            $comparator->assertEquals(
+                $this->value,
+                $other,
+                $this->delta,
+                $this->canonicalize,
+                $this->ignoreCase,
+            );
         } catch (ComparisonFailure $f) {
             if ($returnResult) {
                 return false;
@@ -69,32 +89,32 @@ final class IsEqual extends Constraint
     /**
      * Returns a string representation of the constraint.
      */
-    public function toString(): string
+    public function toString(bool $exportObjects = false): string
     {
-        return 'is equal to ' . $this->valueAsString();
-    }
+        $delta = '';
 
-    /**
-     * Returns the negated string representation of the constraint.
-     *
-     * Authoring the negation here keeps the exported value out of the
-     * negation entirely.
-     */
-    protected function negatedToString(): string
-    {
-        return 'is not equal to ' . $this->valueAsString();
-    }
-
-    private function valueAsString(): string
-    {
         if (is_string($this->value)) {
             if (str_contains($this->value, "\n")) {
-                return '<text>';
+                return 'is equal to <text>';
             }
 
-            return sprintf("'%s'", $this->value);
+            return sprintf(
+                "is equal to '%s'",
+                $this->value,
+            );
         }
 
-        return Exporter::export($this->value);
+        if ($this->delta != 0) {
+            $delta = sprintf(
+                ' with delta <%F>',
+                $this->delta,
+            );
+        }
+
+        return sprintf(
+            'is equal to %s%s',
+            Exporter::export($this->value, $exportObjects),
+            $delta,
+        );
     }
 }
