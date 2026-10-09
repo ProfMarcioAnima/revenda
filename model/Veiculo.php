@@ -12,7 +12,7 @@ class Veiculo {
     }
 
     public function listarPublico($busca = '', $filtros = []) {
-        $sql = "SELECT * FROM " . $this->table . " WHERE visivel = TRUE";
+        $sql = "SELECT id, marca, modelo, `year`, cor, motor, cambio, ar_condicionado, imagem, valor, `status`, visivel FROM " . $this->table . " WHERE visivel = TRUE";
         $params = [];
 
         if (!empty($busca)) {
@@ -67,13 +67,13 @@ class Veiculo {
     }
 
     public function listarTodosAdmin() {
-        $stmt = $this->conn->prepare("SELECT * FROM " . $this->table . " ORDER BY id DESC");
+        $stmt = $this->conn->prepare("SELECT id, marca, modelo, `year`, cor, motor, cambio, ar_condicionado, imagem, valor, `status`, visivel FROM " . $this->table . " ORDER BY id DESC");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function buscarPorId($id) {
-        $stmt = $this->conn->prepare("SELECT * FROM " . $this->table . " WHERE id = :id");
+        $stmt = $this->conn->prepare("SELECT id, marca, modelo, `year`, cor, motor, cambio, ar_condicionado, imagem, valor, `status`, visivel FROM " . $this->table . " WHERE id = :id");
         $stmt->execute([':id' => $id]);
         //return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         return $stmt->fetch(PDO::FETCH_ASSOC);
