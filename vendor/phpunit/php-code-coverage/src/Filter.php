@@ -14,24 +14,32 @@ use function is_file;
 use function realpath;
 use function str_contains;
 use function str_starts_with;
+use SebastianBergmann\FileIterator\Facade as FileIteratorFacade;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for phpunit/php-code-coverage
- */
 final class Filter
 {
     /**
-     * @var array<non-empty-string,true>
+     * @psalm-var array<string,true>
      */
     private array $files = [];
 
     /**
-     * @var array<string,bool>
+     * @psalm-var array<string,bool>
      */
     private array $isFileCache = [];
 
     /**
-     * @param list<string> $filenames
+     * @deprecated
+     */
+    public function includeDirectory(string $directory, string $suffix = '.php', string $prefix = ''): void
+    {
+        foreach ((new FileIteratorFacade)->getFilesAsArray($directory, $suffix, $prefix) as $file) {
+            $this->includeFile($file);
+        }
+    }
+
+    /**
+     * @psalm-param list<string> $files
      */
     public function includeFiles(array $filenames): void
     {
@@ -44,11 +52,35 @@ final class Filter
     {
         $filename = realpath($filename);
 
-        if ($filename === false) {
+        if (!$filename) {
             return;
         }
 
         $this->files[$filename] = true;
+    }
+
+    /**
+     * @deprecated
+     */
+    public function excludeDirectory(string $directory, string $suffix = '.php', string $prefix = ''): void
+    {
+        foreach ((new FileIteratorFacade)->getFilesAsArray($directory, $suffix, $prefix) as $file) {
+            $this->excludeFile($file);
+        }
+    }
+
+    /**
+     * @deprecated
+     */
+    public function excludeFile(string $filename): void
+    {
+        $filename = realpath($filename);
+
+        if (!$filename || !isset($this->files[$filename])) {
+            return;
+        }
+
+        unset($this->files[$filename]);
     }
 
     public function isFile(string $filename): bool
@@ -82,7 +114,7 @@ final class Filter
     }
 
     /**
-     * @return list<non-empty-string>
+     * @psalm-return list<string>
      */
     public function files(): array
     {
@@ -91,6 +123,6 @@ final class Filter
 
     public function isEmpty(): bool
     {
-        return $this->files === [];
+        return empty($this->files);
     }
 }

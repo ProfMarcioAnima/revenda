@@ -9,9 +9,6 @@
  */
 namespace SebastianBergmann\Type;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for this library
- */
 final class GenericObjectType extends Type
 {
     private bool $allowsNull;
@@ -27,12 +24,13 @@ final class GenericObjectType extends Type
             return true;
         }
 
-        return $other instanceof ObjectType;
+        if (!$other instanceof ObjectType) {
+            return false;
+        }
+
+        return true;
     }
 
-    /**
-     * @return 'object'
-     */
     public function name(): string
     {
         return 'object';
@@ -43,6 +41,9 @@ final class GenericObjectType extends Type
         return $this->allowsNull;
     }
 
+    /**
+     * @psalm-assert-if-true GenericObjectType $this
+     */
     public function isGenericObject(): bool
     {
         return true;

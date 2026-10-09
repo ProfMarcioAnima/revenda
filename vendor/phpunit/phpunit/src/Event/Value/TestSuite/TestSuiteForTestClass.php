@@ -12,46 +12,37 @@ namespace PHPUnit\Event\TestSuite;
 use PHPUnit\Event\Code\TestCollection;
 
 /**
- * @immutable
+ * @psalm-immutable
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class TestSuiteForTestClass extends TestSuite
+final class TestSuiteForTestClass extends TestSuite
 {
     /**
-     * @var class-string
+     * @psalm-var class-string
      */
-    private string $className;
-    private string $prettifiedName;
-    private string $file;
-    private int $line;
+    private readonly string $className;
+    private readonly string $file;
+    private readonly int $line;
 
     /**
-     * @param class-string $name
-     *
-     * @internal This method is not covered by the backward compatibility promise for PHPUnit
+     * @psalm-param class-string $name
      */
-    public function __construct(string $name, int $size, TestCollection $tests, string $prettifiedName, string $file, int $line)
+    public function __construct(string $name, int $size, TestCollection $tests, string $file, int $line)
     {
         parent::__construct($name, $size, $tests);
 
-        $this->className      = $name;
-        $this->prettifiedName = $prettifiedName;
-        $this->file           = $file;
-        $this->line           = $line;
+        $this->className = $name;
+        $this->file      = $file;
+        $this->line      = $line;
     }
 
     /**
-     * @return class-string
+     * @psalm-return class-string
      */
     public function className(): string
     {
         return $this->className;
-    }
-
-    public function prettifiedName(): string
-    {
-        return $this->prettifiedName;
     }
 
     public function file(): string
@@ -64,7 +55,10 @@ final readonly class TestSuiteForTestClass extends TestSuite
         return $this->line;
     }
 
-    public function isForTestClass(): true
+    /**
+     * @psalm-assert-if-true TestSuiteForTestClass $this
+     */
+    public function isForTestClass(): bool
     {
         return true;
     }

@@ -9,29 +9,32 @@
  */
 namespace PHPUnit\TextUI\Configuration;
 
-use function assert;
+use function count;
+use function iterator_count;
+use Countable;
 use Iterator;
 
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  *
- * @template-implements Iterator<non-negative-int, TestFile>
+ * @template-implements Iterator<int, TestFile>
  */
-final class TestFileCollectionIterator implements Iterator
+final class TestFileCollectionIterator implements Countable, Iterator
 {
     /**
-     * @var list<TestFile>
+     * @psalm-var list<TestFile>
      */
     private readonly array $files;
-
-    /**
-     * @var non-negative-int
-     */
     private int $position = 0;
 
     public function __construct(TestFileCollection $files)
     {
         $this->files = $files->asArray();
+    }
+
+    public function count(): int
+    {
+        return iterator_count($this);
     }
 
     public function rewind(): void
@@ -41,12 +44,9 @@ final class TestFileCollectionIterator implements Iterator
 
     public function valid(): bool
     {
-        return isset($this->files[$this->position]);
+        return $this->position < count($this->files);
     }
 
-    /**
-     * @return non-negative-int
-     */
     public function key(): int
     {
         return $this->position;
@@ -54,8 +54,6 @@ final class TestFileCollectionIterator implements Iterator
 
     public function current(): TestFile
     {
-        assert(isset($this->files[$this->position]));
-
         return $this->files[$this->position];
     }
 

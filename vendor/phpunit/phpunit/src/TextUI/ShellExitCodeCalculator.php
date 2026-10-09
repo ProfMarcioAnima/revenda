@@ -17,18 +17,16 @@ use PHPUnit\TextUI\Configuration\Configuration;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class ShellExitCodeCalculator
+final class ShellExitCodeCalculator
 {
-    private const int SUCCESS_EXIT   = 0;
-    private const int FAILURE_EXIT   = 1;
-    private const int EXCEPTION_EXIT = 2;
-    private const int TIMEOUT_EXIT   = 124;
+    private const SUCCESS_EXIT   = 0;
+    private const FAILURE_EXIT   = 1;
+    private const EXCEPTION_EXIT = 2;
 
     public function calculate(Configuration $configuration, TestResult $result): int
     {
         $failOnDeprecation        = false;
         $failOnPhpunitDeprecation = false;
-        $failOnPhpunitNotice      = false;
         $failOnPhpunitWarning     = false;
         $failOnEmptyTestSuite     = false;
         $failOnIncomplete         = false;
@@ -40,7 +38,6 @@ final readonly class ShellExitCodeCalculator
         if ($configuration->failOnAllIssues()) {
             $failOnDeprecation        = true;
             $failOnPhpunitDeprecation = true;
-            $failOnPhpunitNotice      = true;
             $failOnPhpunitWarning     = true;
             $failOnEmptyTestSuite     = true;
             $failOnIncomplete         = true;
@@ -58,48 +55,12 @@ final readonly class ShellExitCodeCalculator
             $failOnDeprecation = false;
         }
 
-        $failOnSelfDeprecation     = $failOnDeprecation;
-        $failOnDirectDeprecation   = $failOnDeprecation;
-        $failOnIndirectDeprecation = $failOnDeprecation;
-
-        if ($configuration->failOnSelfDeprecation()) {
-            $failOnSelfDeprecation = true;
-        }
-
-        if ($configuration->doNotFailOnSelfDeprecation()) {
-            $failOnSelfDeprecation = false;
-        }
-
-        if ($configuration->failOnDirectDeprecation()) {
-            $failOnDirectDeprecation = true;
-        }
-
-        if ($configuration->doNotFailOnDirectDeprecation()) {
-            $failOnDirectDeprecation = false;
-        }
-
-        if ($configuration->failOnIndirectDeprecation()) {
-            $failOnIndirectDeprecation = true;
-        }
-
-        if ($configuration->doNotFailOnIndirectDeprecation()) {
-            $failOnIndirectDeprecation = false;
-        }
-
         if ($configuration->failOnPhpunitDeprecation()) {
             $failOnPhpunitDeprecation = true;
         }
 
         if ($configuration->doNotFailOnPhpunitDeprecation()) {
             $failOnPhpunitDeprecation = false;
-        }
-
-        if ($configuration->failOnPhpunitNotice()) {
-            $failOnPhpunitNotice = true;
-        }
-
-        if ($configuration->doNotFailOnPhpunitNotice()) {
-            $failOnPhpunitNotice = false;
         }
 
         if ($configuration->failOnPhpunitWarning()) {
@@ -168,27 +129,11 @@ final readonly class ShellExitCodeCalculator
             $returnCode = self::FAILURE_EXIT;
         }
 
-        if ($failOnSelfDeprecation && $result->hasSelfDeprecations()) {
-            $returnCode = self::FAILURE_EXIT;
-        }
-
-        if ($failOnDirectDeprecation && $result->hasDirectDeprecations()) {
-            $returnCode = self::FAILURE_EXIT;
-        }
-
-        if ($failOnIndirectDeprecation && $result->hasIndirectDeprecations()) {
-            $returnCode = self::FAILURE_EXIT;
-        }
-
-        if ($failOnDeprecation && $result->hasDeprecationsWithUnknownTrigger()) {
+        if ($failOnDeprecation && $result->hasPhpOrUserDeprecations()) {
             $returnCode = self::FAILURE_EXIT;
         }
 
         if ($failOnPhpunitDeprecation && $result->hasPhpunitDeprecations()) {
-            $returnCode = self::FAILURE_EXIT;
-        }
-
-        if ($failOnPhpunitNotice && $result->hasPhpunitNotices()) {
             $returnCode = self::FAILURE_EXIT;
         }
 
@@ -218,10 +163,6 @@ final readonly class ShellExitCodeCalculator
 
         if ($result->hasErrors()) {
             $returnCode = self::EXCEPTION_EXIT;
-        }
-
-        if ($result->wasTimeLimitExceeded()) {
-            $returnCode = self::TIMEOUT_EXIT;
         }
 
         return $returnCode;

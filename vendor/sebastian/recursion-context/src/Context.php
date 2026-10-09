@@ -12,24 +12,17 @@ namespace SebastianBergmann\RecursionContext;
 use const PHP_INT_MAX;
 use const PHP_INT_MIN;
 use function array_key_exists;
-use function array_key_last;
 use function array_pop;
+use function array_slice;
 use function count;
 use function is_array;
 use function random_int;
-use function spl_object_id;
+use function spl_object_hash;
 use SplObjectStorage;
 
 final class Context
 {
-    /**
-     * @var list<array<mixed>>
-     */
     private array $arrays = [];
-
-    /**
-     * @var SplObjectStorage<object, null>
-     */
     private SplObjectStorage $objects;
 
     public function __construct()
@@ -43,23 +36,23 @@ final class Context
     public function __destruct()
     {
         foreach ($this->arrays as &$array) {
-            if (is_array($array) && $this->containsArray($array) !== false) {
+            if (is_array($array)) {
+                array_pop($array);
                 array_pop($array);
             }
         }
     }
 
     /**
-     * @template T of object|array
+     * @psalm-template T of object|array
      *
-     * @param T $value
+     * @psalm-param T $value
      *
      * @param-out T $value
      */
-    public function add(array|object &$value): int
+    public function add(array|object &$value): false|int|string
     {
         if (is_array($value)) {
-            /* @phpstan-ignore paramOut.type */
             return $this->addArray($value);
         }
 
@@ -67,13 +60,13 @@ final class Context
     }
 
     /**
-     * @template T of object|array
+     * @psalm-template T of object|array
      *
-     * @param T $value
+     * @psalm-param T $value
      *
      * @param-out T $value
      */
-    public function contains(array|object &$value): false|int
+    public function contains(array|object &$value): false|int|string
     {
         if (is_array($value)) {
             return $this->containsArray($value);
@@ -82,9 +75,6 @@ final class Context
         return $this->containsObject($value);
     }
 
-    /**
-     * @param array<mixed> $array
-     */
     private function addArray(array &$array): int
     {
         $key = $this->containsArray($array);
@@ -95,60 +85,55 @@ final class Context
 
         $key            = count($this->arrays);
         $this->arrays[] = &$array;
-        $marker         = new Marker($this->objects, $key);
 
-        if (!array_key_exists(PHP_INT_MAX, $array)) {
-            $array[] = $marker;
+        if (!array_key_exists(PHP_INT_MAX, $array) && !array_key_exists(PHP_INT_MAX - 1, $array)) {
+            $array[] = $key;
+            $array[] = $this->objects;
         } else {
-            /* Cover the improbable case, too: an element cannot be appended to
-             * an array that already has an element with the largest possible
-             * integer key.
+            /* Cover the improbable case, too.
              *
-             * Note that containsArray() looks at the last element of the array,
-             * which is the element written below regardless of the key used for
-             * it. Therefore, the actual key is not important. */
+             * Note that array_slice() (used in containsArray()) will return the
+             * last two values added, *not necessarily* the highest integer keys
+             * in the array. Therefore, the order of these writes to $array is
+             * important, but the actual keys used is not. */
             do {
                 /** @noinspection PhpUnhandledExceptionInspection */
-                $markerKey = random_int(PHP_INT_MIN, PHP_INT_MAX);
-            } while (array_key_exists($markerKey, $array));
+                $key = random_int(PHP_INT_MIN, PHP_INT_MAX);
+            } while (array_key_exists($key, $array));
 
-            $array[$markerKey] = $marker;
+            $array[$key] = $key;
+
+            do {
+                /** @noinspection PhpUnhandledExceptionInspection */
+                $key = random_int(PHP_INT_MIN, PHP_INT_MAX);
+            } while (array_key_exists($key, $array));
+
+            $array[$key] = $this->objects;
         }
 
         return $key;
     }
 
-    private function addObject(object $object): int
+    private function addObject(object $object): string
     {
-        $this->objects->offsetSet($object);
+        if (!$this->objects->offsetExists($object)) {
+            $this->objects->offsetSet($object);
+        }
 
-        return spl_object_id($object);
+        return @spl_object_hash($object);
     }
 
-    /**
-     * @param array<mixed> $array
-     */
     private function containsArray(array $array): false|int
     {
-        $key = array_key_last($array);
+        $end = array_slice($array, -2);
 
-        if ($key === null) {
-            return false;
-        }
-
-        $last = $array[$key];
-
-        if ($last instanceof Marker && $last->owner === $this->objects) {
-            return $last->key;
-        }
-
-        return false;
+        return isset($end[1]) && $end[1] === $this->objects ? $end[0] : false;
     }
 
-    private function containsObject(object $value): false|int
+    private function containsObject(object $value): false|string
     {
         if ($this->objects->offsetExists($value)) {
-            return spl_object_id($value);
+            return @spl_object_hash($value);
         }
 
         return false;

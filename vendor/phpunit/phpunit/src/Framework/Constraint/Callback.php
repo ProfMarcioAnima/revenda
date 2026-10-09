@@ -9,24 +9,23 @@
  */
 namespace PHPUnit\Framework\Constraint;
 
-use function is_array;
 use Closure;
 use ReflectionFunction;
 
 /**
- * @template CallbackInput of mixed
+ * @psalm-template CallbackInput of mixed
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  */
 final class Callback extends Constraint
 {
     /**
-     * @var callable(CallbackInput): bool
+     * @psalm-var callable(CallbackInput $input): bool
      */
     private readonly mixed $callback;
 
     /**
-     * @param callable(CallbackInput $input): bool $callback
+     * @psalm-param callable(CallbackInput $input): bool $callback
      */
     public function __construct(callable $callback)
     {
@@ -41,28 +40,31 @@ final class Callback extends Constraint
         return 'is accepted by specified callback';
     }
 
+    /**
+     * @psalm-suppress ArgumentTypeCoercion
+     */
     public function isVariadic(): bool
     {
-        return new ReflectionFunction(Closure::fromCallable($this->callback))->isVariadic();
-    }
+        foreach ((new ReflectionFunction(Closure::fromCallable($this->callback)))->getParameters() as $parameter) {
+            if ($parameter->isVariadic()) {
+                return true;
+            }
+        }
 
-    /**
-     * Returns the negated string representation of the constraint.
-     */
-    protected function negatedToString(): string
-    {
-        return 'is not accepted by specified callback';
+        return false;
     }
 
     /**
      * Evaluates the constraint for parameter $value. Returns true if the
      * constraint is met, false otherwise.
      *
-     * @param CallbackInput $other
+     * @psalm-param CallbackInput $other
+     *
+     * @psalm-suppress InvalidArgument
      */
     protected function matches(mixed $other): bool
     {
-        if ($this->isVariadic() && is_array($other)) {
+        if ($this->isVariadic()) {
             return ($this->callback)(...$other);
         }
 

@@ -9,9 +9,6 @@
  */
 namespace PHPUnit\Framework\Constraint;
 
-use function assert;
-use function count;
-use function is_bool;
 use function is_object;
 use PHPUnit\Framework\ActualValueIsNotAnObjectException;
 use PHPUnit\Framework\ComparisonMethodDoesNotAcceptParameterTypeException;
@@ -39,14 +36,6 @@ final class ObjectEquals extends Constraint
     public function toString(): string
     {
         return 'two objects are equal';
-    }
-
-    /**
-     * Returns the negated string representation of the constraint.
-     */
-    protected function negatedToString(): string
-    {
-        return 'two objects are not equal';
     }
 
     /**
@@ -111,7 +100,6 @@ final class ObjectEquals extends Constraint
             );
         }
 
-        assert(count($method->getParameters()) > 0);
         $parameter = $method->getParameters()[0];
 
         if (!$parameter->hasType()) {
@@ -133,9 +121,7 @@ final class ObjectEquals extends Constraint
         $typeName = $type->getName();
 
         if ($typeName === 'self') {
-            // @codeCoverageIgnoreStart
             $typeName = $other::class;
-            // @codeCoverageIgnoreEnd
         }
 
         if (!$this->expected instanceof $typeName) {
@@ -146,21 +132,11 @@ final class ObjectEquals extends Constraint
             );
         }
 
-        /** @phpstan-ignore method.dynamicName */
-        $result = $other->{$this->method}($this->expected);
-
-        assert(is_bool($result));
-
-        return $result;
+        return $other->{$this->method}($this->expected);
     }
 
     protected function failureDescription(mixed $other): string
     {
-        return $this->toString();
-    }
-
-    protected function negatedFailureDescription(mixed $other): string
-    {
-        return $this->negatedToString();
+        return $this->toString(true);
     }
 }

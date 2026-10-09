@@ -9,11 +9,11 @@
  */
 namespace PHPUnit\Logging\TestDox;
 
-use function assert;
+use function count;
 use Iterator;
 
 /**
- * @template-implements Iterator<non-negative-int, TestResult>
+ * @template-implements Iterator<int, TestResult>
  *
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  *
@@ -22,13 +22,9 @@ use Iterator;
 final class TestResultCollectionIterator implements Iterator
 {
     /**
-     * @var list<TestResult>
+     * @psalm-var list<TestResult>
      */
     private readonly array $testResults;
-
-    /**
-     * @var non-negative-int
-     */
     private int $position = 0;
 
     public function __construct(TestResultCollection $testResults)
@@ -43,12 +39,9 @@ final class TestResultCollectionIterator implements Iterator
 
     public function valid(): bool
     {
-        return isset($this->testResults[$this->position]);
+        return $this->position < count($this->testResults);
     }
 
-    /**
-     * @return non-negative-int
-     */
     public function key(): int
     {
         return $this->position;
@@ -56,8 +49,6 @@ final class TestResultCollectionIterator implements Iterator
 
     public function current(): TestResult
     {
-        assert(isset($this->testResults[$this->position]));
-
         return $this->testResults[$this->position];
     }
 

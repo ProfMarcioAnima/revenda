@@ -10,14 +10,9 @@
 namespace SebastianBergmann\Comparator;
 
 use function assert;
-use SebastianBergmann\Exporter\ObjectNotSupportedException;
+use SebastianBergmann\Exporter\Exporter;
 use SplObjectStorage;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for sebastian/comparator
- *
- * @internal This class is not covered by the backward compatibility promise for sebastian/comparator
- */
 final class SplObjectStorageComparator extends Comparator
 {
     public function accepts(mixed $expected, mixed $actual): bool
@@ -27,14 +22,13 @@ final class SplObjectStorageComparator extends Comparator
 
     /**
      * @throws ComparisonFailure
-     * @throws ObjectNotSupportedException
      */
     public function assertEquals(mixed $expected, mixed $actual, float $delta = 0.0, bool $canonicalize = false, bool $ignoreCase = false): void
     {
         assert($expected instanceof SplObjectStorage);
         assert($actual instanceof SplObjectStorage);
 
-        $exporter = $this->exporter();
+        $exporter = new Exporter;
 
         foreach ($actual as $object) {
             if (!$expected->offsetExists($object)) {
@@ -44,7 +38,6 @@ final class SplObjectStorageComparator extends Comparator
                     $exporter->export($expected),
                     $exporter->export($actual),
                     'Failed asserting that two objects are equal.',
-                    $this->contextLines(),
                 );
             }
         }
@@ -57,7 +50,6 @@ final class SplObjectStorageComparator extends Comparator
                     $exporter->export($expected),
                     $exporter->export($actual),
                     'Failed asserting that two objects are equal.',
-                    $this->contextLines(),
                 );
             }
         }

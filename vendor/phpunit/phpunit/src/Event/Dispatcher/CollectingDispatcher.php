@@ -9,9 +9,6 @@
  */
 namespace PHPUnit\Event;
 
-use PHPUnit\Runner\DeprecationCollector\Facade as DeprecationCollector;
-use PHPUnit\Runner\DeprecationCollector\TestTriggeredDeprecationSubscriber;
-
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  *
@@ -20,37 +17,15 @@ use PHPUnit\Runner\DeprecationCollector\TestTriggeredDeprecationSubscriber;
 final class CollectingDispatcher implements Dispatcher
 {
     private EventCollection $events;
-    private DirectDispatcher $isolatedDirectDispatcher;
 
-    public function __construct(DirectDispatcher $directDispatcher)
+    public function __construct()
     {
-        $this->isolatedDirectDispatcher = $directDispatcher;
-        $this->events                   = new EventCollection;
-
-        $this->isolatedDirectDispatcher->registerSubscriber(new TestTriggeredDeprecationSubscriber(DeprecationCollector::collector()));
+        $this->events = new EventCollection;
     }
 
     public function dispatch(Event $event): void
     {
         $this->events->add($event);
-
-        try {
-            $this->isolatedDirectDispatcher->dispatch($event);
-        } catch (UnknownEventTypeException) {
-            // Do nothing.
-        }
-    }
-
-    /**
-     * Registers a subscriber with the direct dispatcher that events are
-     * dispatched to as they are collected, so that it receives the events of
-     * the test that a child process runs while the test is running.
-     *
-     * @throws UnknownSubscriberTypeException
-     */
-    public function registerSubscriber(Subscriber $subscriber): void
-    {
-        $this->isolatedDirectDispatcher->registerSubscriber($subscriber);
     }
 
     public function flush(): EventCollection

@@ -9,7 +9,6 @@
  */
 namespace PHPUnit\TextUI\XmlConfiguration;
 
-use function assert;
 use DOMDocument;
 
 /**
@@ -17,18 +16,15 @@ use DOMDocument;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final readonly class IntroduceCoverageElement implements Migration
+final class IntroduceCoverageElement implements Migration
 {
     public function migrate(DOMDocument $document): void
     {
-        $coverage        = $document->createElement('coverage');
-        $documentElement = $document->documentElement;
+        $coverage = $document->createElement('coverage');
 
-        assert($documentElement !== null);
-
-        $documentElement->insertBefore(
+        $document->documentElement->insertBefore(
             $coverage,
-            $documentElement->firstChild,
+            $document->documentElement->firstChild,
         );
     }
 }

@@ -18,8 +18,7 @@ final class DeferringDispatcher implements SubscribableDispatcher
 {
     private readonly SubscribableDispatcher $dispatcher;
     private EventCollection $events;
-    private bool $recording                   = true;
-    private ?EventCollection $collectedEvents = null;
+    private bool $recording = true;
 
     public function __construct(SubscribableDispatcher $dispatcher)
     {
@@ -39,12 +38,6 @@ final class DeferringDispatcher implements SubscribableDispatcher
 
     public function dispatch(Event $event): void
     {
-        if ($this->collectedEvents !== null) {
-            $this->collectedEvents->add($event);
-
-            return;
-        }
-
         if ($this->recording) {
             $this->events->add($event);
 
@@ -52,34 +45,6 @@ final class DeferringDispatcher implements SubscribableDispatcher
         }
 
         $this->dispatcher->dispatch($event);
-    }
-
-    /**
-     * @throws EventsAreAlreadyBeingCollectedException
-     */
-    public function startCollectingEvents(): void
-    {
-        if ($this->collectedEvents !== null) {
-            throw new EventsAreAlreadyBeingCollectedException;
-        }
-
-        $this->collectedEvents = new EventCollection;
-    }
-
-    /**
-     * @throws EventsAreNotBeingCollectedException
-     */
-    public function stopCollectingEvents(): EventCollection
-    {
-        if ($this->collectedEvents === null) {
-            throw new EventsAreNotBeingCollectedException;
-        }
-
-        $events = $this->collectedEvents;
-
-        $this->collectedEvents = null;
-
-        return $events;
     }
 
     public function flush(): void

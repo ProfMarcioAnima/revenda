@@ -10,61 +10,53 @@
 namespace SebastianBergmann\CodeCoverage\Driver;
 
 use SebastianBergmann\CodeCoverage\Filter;
-use SebastianBergmann\CodeCoverage\NoSupportedDriverAvailableException;
+use SebastianBergmann\CodeCoverage\NoCodeCoverageDriverAvailableException;
+use SebastianBergmann\CodeCoverage\NoCodeCoverageDriverWithPathCoverageSupportAvailableException;
 use SebastianBergmann\Environment\Runtime;
 
-/**
- * @no-named-arguments Parameter names are not covered by the backward compatibility promise for phpunit/php-code-coverage
- */
 final class Selector
 {
     /**
-     * @throws NoSupportedDriverAvailableException
+     * @throws NoCodeCoverageDriverAvailableException
+     * @throws PcovNotAvailableException
      * @throws XdebugNotAvailableException
      * @throws XdebugNotEnabledException
-     * @throws XdebugVersionNotSupportedException
      */
-    public function select(Filter $filter, Granularity $granularity = Granularity::Line): Driver
+    public function forLineCoverage(Filter $filter): Driver
     {
         $runtime = new Runtime;
 
-        if ($granularity === Granularity::Line && $runtime->hasPCOV()) {
+        if ($runtime->hasPCOV()) {
             return new PcovDriver($filter);
         }
 
         if ($runtime->hasXdebug()) {
             $driver = new XdebugDriver($filter);
-            $driver->setGranularity($granularity);
+
+            $driver->enableDeadCodeDetection();
 
             return $driver;
         }
 
-        throw new NoSupportedDriverAvailableException($granularity);
+        throw new NoCodeCoverageDriverAvailableException;
     }
 
     /**
-     * @throws NoSupportedDriverAvailableException
+     * @throws NoCodeCoverageDriverWithPathCoverageSupportAvailableException
      * @throws XdebugNotAvailableException
      * @throws XdebugNotEnabledException
-     * @throws XdebugVersionNotSupportedException
-     *
-     * @deprecated
-     */
-    public function forLineCoverage(Filter $filter): Driver
-    {
-        return $this->select($filter, Granularity::Line);
-    }
-
-    /**
-     * @throws NoSupportedDriverAvailableException
-     * @throws XdebugNotAvailableException
-     * @throws XdebugNotEnabledException
-     * @throws XdebugVersionNotSupportedException
-     *
-     * @deprecated
      */
     public function forLineAndPathCoverage(Filter $filter): Driver
     {
-        return $this->select($filter, Granularity::LineBranchAndPath);
+        if ((new Runtime)->hasXdebug()) {
+            $driver = new XdebugDriver($filter);
+
+            $driver->enableDeadCodeDetection();
+            $driver->enableBranchAndPathCoverage();
+
+            return $driver;
+        }
+
+        throw new NoCodeCoverageDriverWithPathCoverageSupportAvailableException;
     }
 }

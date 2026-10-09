@@ -26,17 +26,9 @@ final class GreaterThan extends Constraint
     /**
      * Returns a string representation of the constraint.
      */
-    public function toString(): string
+    public function toString(bool $exportObjects = false): string
     {
-        return 'is greater than ' . Exporter::export($this->value);
-    }
-
-    /**
-     * Returns the negated string representation of the constraint.
-     */
-    protected function negatedToString(): string
-    {
-        return 'is not greater than ' . Exporter::export($this->value);
+        return 'is greater than ' . Exporter::export($this->value, $exportObjects);
     }
 
     /**

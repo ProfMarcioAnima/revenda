@@ -14,11 +14,14 @@ namespace PHPUnit\Framework\TestSize;
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  *
- * @immutable
+ * @psalm-immutable
  */
-final readonly class Large extends Known
+final class Large extends Known
 {
-    public function isLarge(): true
+    /**
+     * @psalm-assert-if-true Large $this
+     */
+    public function isLarge(): bool
     {
         return true;
     }
@@ -28,9 +31,6 @@ final readonly class Large extends Known
         return !$other->isLarge();
     }
 
-    /**
-     * @return 'large'
-     */
     public function asString(): string
     {
         return 'large';

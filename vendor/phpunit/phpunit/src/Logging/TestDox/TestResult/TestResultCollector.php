@@ -13,12 +13,12 @@ use function array_keys;
 use function array_merge;
 use function assert;
 use function is_subclass_of;
-use function strnatcasecmp;
-use function uasort;
+use function ksort;
 use function uksort;
 use function usort;
 use PHPUnit\Event\Code\TestMethod;
 use PHPUnit\Event\Code\Throwable;
+use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\InvalidArgumentException;
 use PHPUnit\Event\Test\ConsideredRisky;
@@ -38,10 +38,11 @@ use PHPUnit\Event\Test\PhpWarningTriggered;
 use PHPUnit\Event\Test\Prepared;
 use PHPUnit\Event\Test\Skipped;
 use PHPUnit\Event\Test\WarningTriggered;
-use PHPUnit\Event\TestSuite\Skipped as TestSuiteSkipped;
+use PHPUnit\Event\UnknownSubscriberTypeException;
 use PHPUnit\Framework\TestStatus\TestStatus;
 use PHPUnit\Logging\TestDox\TestResult as TestDoxTestMethod;
-use PHPUnit\TestRunner\IssueFilter;
+use PHPUnit\TextUI\Configuration\Source;
+use PHPUnit\TextUI\Configuration\SourceFilter;
 use ReflectionMethod;
 
 /**
@@ -51,35 +52,39 @@ use ReflectionMethod;
  */
 final class TestResultCollector
 {
-    private readonly IssueFilter $issueFilter;
+    private readonly Source $source;
 
     /**
-     * @var array<class-string, list<TestDoxTestMethod>>
+     * @psalm-var array<string, list<TestDoxTestMethod>>
      */
     private array $tests          = [];
     private ?TestStatus $status   = null;
     private ?Throwable $throwable = null;
     private bool $prepared        = false;
 
-    public function __construct(Facade $facade, IssueFilter $issueFilter)
+    /**
+     * @throws EventFacadeIsSealedException
+     * @throws UnknownSubscriberTypeException
+     */
+    public function __construct(Facade $facade, Source $source)
     {
-        $this->issueFilter = $issueFilter;
+        $this->source = $source;
 
         $this->registerSubscribers($facade);
     }
 
     /**
-     * @return array<class-string, TestResultCollection>
+     * @psalm-return array<string, TestResultCollection>
      */
     public function testMethodsGroupedByClass(): array
     {
         $result = [];
 
-        foreach ($this->tests as $className => $tests) {
+        foreach ($this->tests as $prettifiedClassName => $tests) {
             $testsByDeclaringClass = [];
 
             foreach ($tests as $test) {
-                $declaringClassName = new ReflectionMethod($test->test()->className(), $test->test()->methodName())->getDeclaringClass()->getName();
+                $declaringClassName = (new ReflectionMethod($test->test()->className(), $test->test()->methodName()))->getDeclaringClass()->getName();
 
                 if (!isset($testsByDeclaringClass[$declaringClassName])) {
                     $testsByDeclaringClass[$declaringClassName] = [];
@@ -101,12 +106,20 @@ final class TestResultCollector
             uksort(
                 $testsByDeclaringClass,
                 /**
-                 * @param class-string $a
-                 * @param class-string $b
+                 * @psalm-param class-string $a
+                 * @psalm-param class-string $b
                  */
                 static function (string $a, string $b): int
                 {
-                    return is_subclass_of($a, $b) <=> is_subclass_of($b, $a);
+                    if (is_subclass_of($b, $a)) {
+                        return -1;
+                    }
+
+                    if (is_subclass_of($a, $b)) {
+                        return 1;
+                    }
+
+                    return 0;
                 },
             );
 
@@ -116,24 +129,10 @@ final class TestResultCollector
                 $tests = array_merge($tests, $_tests);
             }
 
-            $result[$className] = TestResultCollection::fromArray($tests);
+            $result[$prettifiedClassName] = TestResultCollection::fromArray($tests);
         }
 
-        uasort(
-            $result,
-            static function (TestResultCollection $a, TestResultCollection $b): int
-            {
-                $aList = $a->asArray();
-                $bList = $b->asArray();
-
-                assert($aList !== [] && $bList !== []);
-
-                return strnatcasecmp(
-                    $aList[0]->test()->testDox()->prettifiedClassName(),
-                    $bList[0]->test()->testDox()->prettifiedClassName(),
-                );
-            },
-        );
+        ksort($result);
 
         return $result;
     }
@@ -158,11 +157,13 @@ final class TestResultCollector
         $this->status    = TestStatus::error($event->throwable()->message());
         $this->throwable = $event->throwable();
 
-        $test = $event->test();
+        if (!$this->prepared) {
+            $test = $event->test();
 
-        assert($test instanceof TestMethod);
+            assert($test instanceof TestMethod);
 
-        $this->recordTestThatNeverStarted($test);
+            $this->process($test);
+        }
     }
 
     public function testFailed(Failed $event): void
@@ -191,12 +192,6 @@ final class TestResultCollector
         }
 
         $this->updateTestStatus(TestStatus::skipped($event->message()));
-
-        $test = $event->test();
-
-        assert($test instanceof TestMethod);
-
-        $this->recordTestThatNeverStarted($test);
     }
 
     public function testMarkedIncomplete(MarkedIncomplete $event): void
@@ -208,12 +203,6 @@ final class TestResultCollector
         $this->updateTestStatus(TestStatus::incomplete($event->throwable()->message()));
 
         $this->throwable = $event->throwable();
-
-        $test = $event->test();
-
-        assert($test instanceof TestMethod);
-
-        $this->recordTestThatNeverStarted($test);
     }
 
     public function testConsideredRisky(ConsideredRisky $event): void
@@ -227,11 +216,23 @@ final class TestResultCollector
 
     public function testTriggeredDeprecation(DeprecationTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
+            return;
+        }
+
+        if ($event->ignoredByTest()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfDeprecations() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictDeprecations() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -240,11 +241,19 @@ final class TestResultCollector
 
     public function testTriggeredNotice(NoticeTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfNotices() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictNotices() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -253,11 +262,19 @@ final class TestResultCollector
 
     public function testTriggeredWarning(WarningTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfWarnings() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictWarnings() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -266,11 +283,23 @@ final class TestResultCollector
 
     public function testTriggeredPhpDeprecation(PhpDeprecationTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
+            return;
+        }
+
+        if ($event->ignoredByTest()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfPhpDeprecations() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictDeprecations() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -279,11 +308,19 @@ final class TestResultCollector
 
     public function testTriggeredPhpNotice(PhpNoticeTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfPhpNotices() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictNotices() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -292,11 +329,19 @@ final class TestResultCollector
 
     public function testTriggeredPhpWarning(PhpWarningTriggered $event): void
     {
-        if (!$this->issueFilter->shouldBeProcessed($event, true)) {
+        if (!$event->test()->isTestMethod()) {
             return;
         }
 
         if ($event->ignoredByBaseline()) {
+            return;
+        }
+
+        if (!$this->source->ignoreSuppressionOfPhpWarnings() && $event->wasSuppressed()) {
+            return;
+        }
+
+        if ($this->source->restrictWarnings() && !SourceFilter::instance()->includes($event->file())) {
             return;
         }
 
@@ -327,10 +372,6 @@ final class TestResultCollector
             return;
         }
 
-        if ($event->ignoredByTest()) {
-            return;
-        }
-
         $this->updateTestStatus(TestStatus::warning());
     }
 
@@ -355,33 +396,9 @@ final class TestResultCollector
     }
 
     /**
-     * A test class that is skipped as a whole is reported as a skipped test
-     * suite, and its tests never start: none of them emits the event that
-     * ends a test, which is what every other test is recorded on. They are
-     * recorded here so that they are not missing from the output, which
-     * would otherwise show fewer tests than the test run counted.
+     * @throws EventFacadeIsSealedException
+     * @throws UnknownSubscriberTypeException
      */
-    public function testSuiteSkipped(TestSuiteSkipped $event): void
-    {
-        $testSuite = $event->testSuite();
-
-        if (!$testSuite->isForTestClass()) {
-            return;
-        }
-
-        $status = TestStatus::skipped($event->message());
-
-        foreach ($testSuite->tests() as $test) {
-            if (!$test->isTestMethod()) {
-                continue;
-            }
-
-            assert($test instanceof TestMethod);
-
-            $this->record($test, $status, null);
-        }
-    }
-
     private function registerSubscribers(Facade $facade): void
     {
         $facade->registerSubscribers(
@@ -393,7 +410,6 @@ final class TestResultCollector
             new TestPassedSubscriber($this),
             new TestPreparedSubscriber($this),
             new TestSkippedSubscriber($this),
-            new TestSuiteSkippedSubscriber($this),
             new TestTriggeredDeprecationSubscriber($this),
             new TestTriggeredNoticeSubscriber($this),
             new TestTriggeredPhpDeprecationSubscriber($this),
@@ -418,46 +434,14 @@ final class TestResultCollector
 
     private function process(TestMethod $test): void
     {
-        assert($this->status !== null);
-
-        $this->record($test, $this->status, $this->throwable);
-    }
-
-    /**
-     * A test that is skipped, marked incomplete, or errored before it starts
-     * - because a test it depends on did not pass, because a requirement it
-     * declares is not met, or because setUp() decided so - never emits the
-     * event that ends a test, which is what every other test is recorded on.
-     * It is recorded here instead.
-     *
-     * What it was recorded with must not be carried over to the next test
-     * that never starts: nothing resets it in between, and a status that is
-     * kept would be the more important one of two unrelated tests.
-     */
-    private function recordTestThatNeverStarted(TestMethod $test): void
-    {
-        if ($this->prepared) {
-            return;
+        if (!isset($this->tests[$test->testDox()->prettifiedClassName()])) {
+            $this->tests[$test->testDox()->prettifiedClassName()] = [];
         }
 
-        assert($this->status !== null);
-
-        $this->record($test, $this->status, $this->throwable);
-
-        $this->status    = null;
-        $this->throwable = null;
-    }
-
-    private function record(TestMethod $test, TestStatus $status, ?Throwable $throwable): void
-    {
-        if (!isset($this->tests[$test->className()])) {
-            $this->tests[$test->className()] = [];
-        }
-
-        $this->tests[$test->className()][] = new TestDoxTestMethod(
+        $this->tests[$test->testDox()->prettifiedClassName()][] = new TestDoxTestMethod(
             $test,
-            $status,
-            $throwable,
+            $this->status,
+            $this->throwable,
         );
     }
 }
