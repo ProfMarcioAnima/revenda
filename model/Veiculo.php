@@ -3,7 +3,7 @@ namespace App\Model;
 
 use PDO;
 
-class Veiculo {
+class veiculo {
     private $conn;
     private $table = "veiculos";
 
